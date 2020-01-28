@@ -1,4 +1,3 @@
-
 # Add all certificates of the upstream server to the certificate chain
 # that will be served to the proxy client, as extras. Type bool.
 add_upstream_certs_to_client_chain: false
@@ -54,24 +53,40 @@ command_history: true
 # Location of the default mitmproxy configuration files. Type str.
 confdir: ~/.mitmproxy
 
-# Flow content view lines limit. Limit is enabled by default to speedup
-# flows browsing. Type int.
-content_view_lines_cutoff: 512
-
 # The default content view mode. Valid values are 'auto', 'raw', 'hex',
 # 'json', 'xml/html', 'wbxml', 'javascript', 'css', 'url-encoded',
 # 'multipart form', 'image', 'query', 'protocol buffer'.
-dumper_default_contentview: auto
+console_default_contentview: auto
 
-# Limit which flows are dumped. Type optional str.
-dumper_filter:
+# EventLog verbosity. Valid values are 'error', 'warn', 'info', 'alert',
+# 'debug'.
+console_eventlog_verbosity: info
 
-# The display detail level for flows in mitmdump: 0 (almost quiet) to 3
-# (very verbose).   0: shortened request URL, response status code,
-# WebSocket and TCP message notifications.   1: full request URL with
-# response status code   2: 1 + HTTP headers   3: 2 + full response
-# content, content of WebSocket and TCP messages. Type int.
-flow_detail: 1
+# Set the flowlist layout Valid values are 'default', 'list', 'table'.
+console_flowlist_layout: default
+
+# Focus follows new flows. Type bool.
+console_focus_follow: false
+
+# Console layout. Valid values are 'horizontal', 'single', 'vertical'.
+console_layout: single
+
+# Show layout component headers Type bool.
+console_layout_headers: true
+
+# Console mouse interaction. Type bool.
+console_mouse: true
+
+# Color palette. Valid values are 'dark', 'light', 'lowdark',
+# 'lowlight', 'solarized_dark', 'solarized_light'.
+console_palette: solarized_dark
+
+# Set transparent background for palette. Type bool.
+console_palette_transparent: false
+
+# Flow content view lines limit. Limit is enabled by default to speedup
+# flows browsing. Type int.
+content_view_lines_cutoff: 512
 
 # Enable/disable HTTP/2 support. HTTP/2 support is enabled by default.
 # Type bool.
@@ -89,14 +104,15 @@ http2_priority: false
 # sequence of str.
 ignore_hosts: []
 
+# Intercept filter expression. Type optional str.
+intercept:
+
+# Intercept toggle Type bool.
+intercept_active: false
+
 # Reverse Proxy: Keep the original host header instead of rewriting it
 # to the reverse proxy target. Type bool.
 keep_host_header: false
-
-# Continue serving after client playback, server playback or file read.
-# This option is ignored by interactive tools, which always keep
-# serving. Type bool.
-keepserving: false
 
 # TLS key size for certificates and CA. Type int.
 key_size: 2048
@@ -105,12 +121,12 @@ key_size: 2048
 listen_host: ''
 
 # Proxy service port. Type int.
-listen_port: 8080
+listen_port: 8443
 
 # Mode can be "regular", "transparent", "socks5", "reverse:SPEC", or
 # "upstream:SPEC". For reverse and upstream proxy modes, SPEC is host
 # specification in the form of "http[s]://host[:port]". Type str.
-mode: regular
+mode: transparent
 
 # Toggle the mitmproxy onboarding app. Type bool.
 onboarding: true
@@ -152,7 +168,7 @@ save_stream_file:
 save_stream_filter:
 
 # Execute a script. Type sequence of str.
-scripts: []
+scripts: ["webfilter.py"]
 
 # Start a proxy server. Enabled by default. Type bool.
 server: true
@@ -200,7 +216,7 @@ server_replay_use_headers: []
 setheaders: []
 
 # Use the Host header to construct URLs for display. Type bool.
-showhost: false
+showhost: true
 
 # Use the client's IP for server-side connections. Combine with
 # --upstream-bind-address to spoof a fixed source address. Type bool.
@@ -250,10 +266,6 @@ stream_websockets: false
 # sequence of str.
 tcp_hosts: []
 
-# Log verbosity. Valid values are 'error', 'warn', 'info', 'alert',
-# 'debug'.
-termlog_verbosity: info
-
 # Add HTTP Basic authentication to upstream proxy and reverse proxy
 # requests. Format: username:password. Type optional str.
 upstream_auth:
@@ -264,7 +276,15 @@ upstream_bind_address: ''
 # Connect to upstream server to look up certificate details. Type bool.
 upstream_cert: true
 
+# Limit the view to matching flows. Type optional str.
+view_filter:
+
+# Flow sort order. Valid values are 'time', 'method', 'url', 'size'.
+view_order: time
+
+# Reverse the sorting order. Type bool.
+view_order_reversed: false
+
 # Enable/disable WebSocket support. WebSocket support is enabled by
 # default. Type bool.
 websocket: true
-
