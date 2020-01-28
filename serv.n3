@@ -1,0 +1,16 @@
+@prefix : <http://bigasterisk.com/ns/serv#> .
+@prefix auth: <http://bigasterisk.com/ns/serv/auth#> .
+@prefix serv: <http://bigasterisk.com/services/> .
+
+serv:webfilter a :Service;
+      :path "/webfilter/";
+      :openid auth:admin;
+      :serverHost "bang";
+      :internalPort 9044;
+      :prodDockerFlags (
+      "-p" "9044:9044"
+      "-v" "`pwd`/mitmproxy:/root/.mitmproxy"
+      "--net=host");
+      :localDockerFlags ("-v" "`pwd`:/opt");
+      :dockerFile "Dockerfile"
+.
