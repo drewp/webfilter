@@ -5,26 +5,10 @@ sys.path.append('/my/proj/release')
 from serv_tasks import serv_tasks
 
 ns = Collection()
-serv_tasks(ns, 'serv.n3', 'webfilter')
 
-@ns.add_task
-@task
-def proxy_start(ctx):
-    for port in [80, 443]:
-        if 'use_nf':
-            pass
-        else:
-            for proto in ['', '6']:
-                ctx.run(f'sudo ip{proto}tables '
-                        f'-t nat '
-                        f'-A OUTPUT '
-                        f'-p tcp '
-                        f'-m owner ! --uid-owner root '
-                        f'--dport {port} '
-                        f'-j REDIRECT '
-                        f'--to-port 8443', pty=True)
-
-@ns.add_task
-@task
-def proxy_stop(ctx):
-    ctx.run(f'sudo iptables-save | grep -v 8443 | sudo iptables-restore', pty=True)
+c = Collection('webfilter')
+ns.add_collection(c)
+serv_tasks(c, 'serv.n3', 'webfilter')
+c = Collection('report')
+ns.add_collection(c)
+serv_tasks(c, 'serv.n3', 'webfilter_report')

@@ -3,14 +3,28 @@
 @prefix serv: <http://bigasterisk.com/services/> .
 
 serv:webfilter a :Service;
+      :serverHost "bang";
+      :internalPort 8443;
+      :prodDockerFlags (
+        "-p" "8443:8443"
+        "-v" "`pwd`/mitmproxy:/root/.mitmproxy"
+        "--net=host");
+      :localDockerFlags (
+        "-v" "`pwd`:/opt"
+      );
+      :dockerFile "Dockerfile"
+.
+
+serv:webfilter_report a :Service;
       :path "/webfilter/";
       :openid auth:admin;
       :serverHost "bang";
-      :internalPort 9044;
+      :internalPort 9074;
       :prodDockerFlags (
-      "-p" "9044:9044"
-      "-v" "`pwd`/mitmproxy:/root/.mitmproxy"
+      "-p" "9074:9074"
       "--net=host");
-      :localDockerFlags ("-v" "`pwd`:/opt");
+      :localDockerFlags (
+      "-v" "`pwd`:/opt"
+      );
       :dockerFile "Dockerfile"
 .
