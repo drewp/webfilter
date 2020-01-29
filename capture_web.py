@@ -75,7 +75,7 @@ class RuleMaker:
     def capture_outgoing_web_traffic(self, mac):
         nat_table = 'mitm_capture'
         chain = 'prerouting'
-        match = match_saddr('10.1.0.5')
+        match = match_source_mac(mac)
 
         self.nft_run([
             {'add': {'table': {
@@ -106,4 +106,13 @@ class RuleMaker:
 if __name__ == '__main__':
     rm = RuleMaker()
     rm.flush()
-    rm.capture_outgoing_web_traffic(mac='...')
+    for mac in [
+            #'dc:ef:ca:ed:58:27', # drewnote
+            '7c:b0:c2:83:31:0f', # arilaptop
+            'c8:1f:66:13:9b:6d', # dot
+            '1c:c1:de:56:e6:70', # music
+            '0c:fe:45:db:33:9e', # ps4
+    ]:
+        rm.capture_outgoing_web_traffic(mac)
+    # possibly need a mitmproxy restart after this for very-long-lived
+    # connections or tables
