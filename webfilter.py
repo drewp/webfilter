@@ -72,7 +72,7 @@ class TimebankClient:
 class MongodbLog:
     def __init__(self, mac_from_ip):
         self.mac_from_ip = mac_from_ip
-        conn = MongoClient('bang', 27017)
+        conn = MongoClient('bang', tz_aware=True)
         db = conn.get_database('timebank')
         self.coll = db.get_collection('webproxy')
 
