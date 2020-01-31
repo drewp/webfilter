@@ -6,33 +6,35 @@ import datetime
 import urllib.parse
 from pymongo import MongoClient
 from dateutil import tz
+from typing import Dict, Optional, Set
 
 
 class TimebankClient:
     ROOM = Namespace('http://projects.bigasterisk.com/room/')
 
     def __init__(self):
-        self.currently_blocked_macs = []
-        self.currently_blocked_ips = []
-        self._mac_from_ip = {}
+        self._mac_from_ip: Dict[str, str] = {}
+        self._currently_blocked_mac: Set[str] = set()
         self.last_refresh = 0
 
     def refresh(self):
         graph = self.get_graphs()
 
         self._mac_from_ip = {}
-        self.currently_blocked_macs = []
+        self._currently_blocked_mac = set()
         for host, _, status in graph.triples((None, self.ROOM['networking'], None)):
-            if status == self.ROOM['blocked']:
-                self.currently_blocked_macs.append(host)
-                for ip in graph.objects(host, self.ROOM['ipAddress']):
-                    self.currently_blocked_ips.append(ip.toPython())
-                    self._mac_from_ip[ip.toPython()] = graph.value(host, self.ROOM['macAddress']).toPython()
-                    break
-                else:
-                    print(f'no ip known for {host} right now')
+            mac = graph.value(host, self.ROOM['macAddress'], default=None)
+            ip = graph.value(host, self.ROOM['ipAddress'], default=None)
+            if mac and ip:
+                self._mac_from_ip[ip.toPython()] = mac.toPython()
 
-        print(f'currently blocked macs={self.currently_blocked_macs} ips={self.currently_blocked_ips}')
+            if status == self.ROOM['blocked']:
+                if mac is None:
+                    print(f'{host} is blocked but has no listed mac')
+                else:
+                    self._currently_blocked_mac.add(mac.toPython())
+
+        print(f'currently blocked: {self._currently_blocked_mac}')
 
     def get_graphs(self):
         graph = ConjunctiveGraph()
@@ -47,20 +49,20 @@ class TimebankClient:
             self.refresh()
             self.last_refresh = now
 
-        if client_ip not in self.currently_blocked_ips:
+        if self._mac_from_ip.get(client_ip, 'nomatch') not in self._currently_blocked_mac:
             return True
 
         netloc = urllib.parse.urlparse(url).netloc
-        if netloc.endswith((
+        if ('.' + netloc).endswith((
                 '.gmail.com',
                 '.google.com',
                 '.googleapis.com',
                 '.gstatic.com',
                 '.slack-edge.com',
                 '.slack.com',
-                'bigasterisk.com',
-                'wikimedia.org',
-                'wikipedia.org',
+                '.bigasterisk.com',
+                '.wikimedia.org',
+                '.wikipedia.org',
         )):
             return True
 
