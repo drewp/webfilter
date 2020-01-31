@@ -26,5 +26,7 @@ serv:webfilter_report a :Service;
       :localDockerFlags (
       "-v" "`pwd`:/opt"
       );
+      :localRunCmdline ("python3" "report.py" "-v");
+      :prodRunCmdline ("python3" "report.py");
       :dockerFile "Dockerfile"
 .
