@@ -2,8 +2,7 @@
 @prefix auth: <http://bigasterisk.com/ns/serv/auth#> .
 @prefix serv: <http://bigasterisk.com/services/> .
 
-serv:webfilter a :Service;
-      :serverHost "bang";
+serv:webfilter_image a :DockerImage;
       :internalPort 8443;
       :prodDockerFlags (
         "-p" "8443:8443"
@@ -13,12 +12,14 @@ serv:webfilter a :Service;
         "-v" "`pwd`:/opt"
       );
       :dockerFile "Dockerfile"
+      .
+
+serv:webfilter a :Service;
+      :image serv:webfilter_image;
+      :serverHost "bang"
 .
 
-serv:webfilter_report a :Service;
-      :path "/webfilter/";
-      :openid auth:admin;
-      :serverHost "bang";
+serv:webfilter_report_image a :DockerImage;
       :internalPort 9074;
       :prodDockerFlags (
       "-p" "9074:9074"
@@ -27,4 +28,11 @@ serv:webfilter_report a :Service;
       "-v" "`pwd`:/opt"
       );
       :dockerFile "Dockerfile"
+.
+
+serv:webfilter_report a :Service;
+      :image serv:webfilter_report_image;
+      :path "/webfilter/";
+      :openid auth:admin;
+      :serverHost "bang"
 .

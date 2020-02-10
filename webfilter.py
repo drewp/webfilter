@@ -38,8 +38,8 @@ class TimebankClient:
 
     def get_graphs(self):
         graph = ConjunctiveGraph()
-        graph.parse('http://bang:10006/timebank', format='trig')
-        graph.parse('http://bang:9070/graph', format='trig') # wifi
+        graph.parse('http://bang:10006/graph/timebank', format='trig')
+        graph.parse('http://bang:9070/graph', format='trig') # soon to be graph/wifi/
         print(f'fetched {len(graph)} statements from timebank and wifi')
         return graph
 
