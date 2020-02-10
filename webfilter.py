@@ -7,6 +7,7 @@ import urllib.parse
 from pymongo import MongoClient
 from dateutil import tz
 from typing import Dict, Optional, Set
+import traceback
 
 
 class TimebankClient:
@@ -38,8 +39,8 @@ class TimebankClient:
 
     def get_graphs(self):
         graph = ConjunctiveGraph()
-        graph.parse('http://bang:10006/timebank', format='trig')
-        graph.parse('http://bang:9070/graph', format='trig') # wifi
+        graph.parse('http://bang:10006/graph/timebank', format='trig')
+        graph.parse('http://bang:9070/graph', format='trig') # soon to be graph/wifi/
         print(f'fetched {len(graph)} statements from timebank and wifi')
         return graph
 
@@ -92,16 +93,20 @@ class Webfilter:
         self.db = MongodbLog(self.timebank.mac_from_ip)
 
     def request(self, flow: http.HTTPFlow):
-        client_ip = flow.client_conn.ip_address[0].split(':')[-1]
+        try:
+            client_ip = flow.client_conn.ip_address[0].split(':')[-1]
 
-        url = flow.request.pretty_url
+            url = flow.request.pretty_url
 
-        print(f'request from {client_ip} to {url}')
+            print(f'request from {client_ip} to {url}')
 
-        if not self.timebank.allowed(client_ip, url):
-            flow.kill()
+            if not self.timebank.allowed(client_ip, url):
+                flow.kill()
 
-        self.save_interesting_events(flow, url, client_ip)
+            self.save_interesting_events(flow, url, client_ip)
+        except Exception:
+            traceback.print_exc()
+            raise
 
     def save_interesting_events(self, flow, url, client_ip):
         host = flow.request.pretty_host
