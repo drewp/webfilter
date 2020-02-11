@@ -32,7 +32,7 @@ serv:webfilter_report_image a :DockerImage;
       :dockerFile "Dockerfile"
 .
 
-serv:webfilter_report a :Service;
+serv:webfilter_report a :Service, :NpmPackage;
       :image serv:webfilter_report_image;
       :path "/webfilter/";
       :openid auth:admin;
