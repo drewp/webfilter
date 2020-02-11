@@ -1,1 +1,10 @@
 node_modules
+__pycache__
+build
+mitmproxy/mitmproxy-ca-cert.cer
+mitmproxy/mitmproxy-ca-cert.p12
+mitmproxy/mitmproxy-ca-cert.pem
+mitmproxy/mitmproxy-ca.p12
+mitmproxy/mitmproxy-ca.pem
+mitmproxy/mitmproxy-dhparam.pem
+
