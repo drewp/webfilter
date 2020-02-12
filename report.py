@@ -10,6 +10,7 @@ from pymongo import MongoClient
 from rdflib import Namespace, Literal, URIRef, RDF
 from twisted.internet import reactor, task, defer
 import cyclone.web
+from typing import Set
 
 from standardservice.logsetup import log, verboseLogging
 from patchablegraph import PatchableGraph, CycloneGraphEventsHandler, CycloneGraphHandler
@@ -25,7 +26,6 @@ def uriFromMongoEvent(docId):
     return URIRef(f'http://bigasterisk.com/webfilter/event/{docId}')
 
 def textFromSlack(message):
-    print(repr(message))
     elements = message[0]['elements'][0]['elements']
     return ' '.join(part['text'] for part in elements)
 
@@ -35,15 +35,18 @@ def quadsForEvent(doc):
     ret = [
         (uri, RDF.type, ROOM['Activity'], ctx),
         (uri, DCTERMS['created'], localTimeLiteral(doc['t']), ctx),
+        (uri, DCTERMS['creator'], Literal(doc.get('mac', 'missing-mac')), ctx),
         ]
-    if doc.get('tag', '') == 'youtube':
+    tag = doc.get('tag', 'unknown')
+    thumbnailUrl = URIRef('other-' + tag)
+    if tag == 'youtube':
         ret.extend([
             (uri, RDF.type, ROOM['WebRequest'],  ctx),
         ])
+        thumbnailUrl = URIRef('youtube')
         if 'watchtime' in doc:
             wt = doc['watchtime']
             ret.extend([
-                (uri, ROOM['thumbnailUrl'], URIRef('http://...'), ctx),
                 (uri, ROOM['link'], URIRef(f'https://www.youtube.com/watch?v={wt["vid"]}'), ctx),
                 (uri, ROOM['currentTime'], Literal(wt['pos']), ctx),
                 (uri, ROOM['videoDuration'], Literal(wt['len']), ctx),
@@ -52,12 +55,21 @@ def quadsForEvent(doc):
             ret.extend([
                 (uri, ROOM['viewUrl'], URIRef(doc['watchPage']), ctx),
             ])
-    elif doc.get('tag', '') == 'slackChat':
+    elif tag == 'slackChat':
+        thumbnailUrl = URIRef('slack')
         ret.extend([
             (uri, RDF.type, ROOM['Chat'], ctx),
-            (uri, ROOM['thumbnailUri'], URIRef('slackthumb'), ctx),
             (uri, ROOM['desc'], Literal(textFromSlack(doc['message'])), ctx),
         ])
+    elif tag == 'htmlPage':
+        thumbnailUrl = URIRef('chrome')
+        ret.extend([
+            (uri, ROOM['link'], URIRef(doc['url']), ctx),
+        ])
+
+    ret.extend([
+        (uri, ROOM['thumbnailUrl'], thumbnailUrl, ctx),
+    ])
 
     return ret
 
@@ -65,7 +77,7 @@ def update(masterGraph, eventsInGraph, coll):
     eventsInGraph = set()
     recentEvents = set()
 
-    for doc in coll.find({}, sort=[('t', -1)], limit=30):
+    for doc in coll.find({}, sort=[('t', -1)], limit=100):
         uri = uriFromMongoEvent(doc['_id'])
         recentEvents.add(uri)
         if uri not in eventsInGraph:
@@ -97,14 +109,14 @@ def main():
                  {"path": ".", "default_filename": "index.html"}),
                 (r'/build/(bundle\.js)', cyclone.web.StaticFileHandler,
                 {"path":"build"}),
-                (r'/webevents',
+                (r'/graph/webevents',
                  CycloneGraphHandler, {'masterGraph': masterGraph}),
-                (r'/webevents/events',
+                (r'/graph/webevents/events',
                  CycloneGraphEventsHandler, {'masterGraph': masterGraph}),
             ]
             cyclone.web.Application.__init__(self, handlers,
                                              masterGraph=masterGraph, coll=coll)
-    task.LoopingCall(update, masterGraph, eventsInGraph, coll).start(5)
+    task.LoopingCall(update, masterGraph, eventsInGraph, coll).start(10)
     reactor.listenTCP(9074, Application())
     reactor.run()
 

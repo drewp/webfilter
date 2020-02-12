@@ -24,16 +24,20 @@ const RDF = {
   type: namedNode("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
 };
 const EV = {
-  desc: namedNode("http://projects.bigasterisk.com/room/desc")
+  desc: namedNode("http://projects.bigasterisk.com/room/desc"),
+  thumbnailUrl: namedNode("http://projects.bigasterisk.com/room/thumbnailUrl"),
+  link: namedNode("http://projects.bigasterisk.com/room/link")
 };
 const DCTERMS = {
   created: namedNode("http://purl.org/dc/terms/created"),
+  creator: namedNode("http://purl.org/dc/terms/creator"),
 }
 
 interface DisplayRow {
   time: number; // ms
+  creator: string;
   prettyTime: string;
-  iconUrl: string | undefined;
+  thumbnailUrl: string | undefined;
   desc: string;
 }
 
@@ -82,16 +86,22 @@ export class TimebankReport extends LitElement {
     this.rows = [];
     const store = this.graph.store;
     subjs.forEach((subj: Quad_Subject) => {
+      const t = getStringValue(store, subj as NamedNode, DCTERMS.created);
       this.rows.push({
-        time: 0,
-        prettyTime: getStringValue(store, subj as NamedNode, DCTERMS.created),
-        iconUrl: '',
-        desc: getStringValue(store, subj as NamedNode, EV.desc)
+        time: +new Date(t),
+        prettyTime: t,
+        thumbnailUrl: getStringValue(store, subj as NamedNode, EV.thumbnailUrl),
+        desc: getStringValue(store, subj as NamedNode, EV.desc),
+        creator: getStringValue(store, subj as NamedNode, DCTERMS.creator)
       });
+      const link = getStringValue(store, subj as NamedNode, EV.link);
+      if (link) {
+        this.rows[this.rows.length-1].desc += ' ' + link;
+      }
     });
 
     this.rows.sort((a, b) => {
-      return a.time - b.time;
+      return b.time - a.time;
     });
   }
 
@@ -99,9 +109,10 @@ export class TimebankReport extends LitElement {
     const renderRow = (row: DisplayRow) => {
       return html`
         <tr>
-          <td>t=${row.prettyTime}</td>
+        <td class="time">${row.prettyTime}</td>
+        <td class="time">${row.creator}</td>
           <td>
-            <img src="${row.iconUrl}" class="eventIcon" />
+            [${row.thumbnailUrl}]<img src="${row.thumbnailUrl}" class="eventIcon" />
             ${row.desc}
           </td>
         </tr>
@@ -113,6 +124,7 @@ export class TimebankReport extends LitElement {
         <table>
           <tr>
             <th>time</th>
+            <th>host</th>
             <th></th>
           </tr>
           ${this.rows.map(renderRow)}
