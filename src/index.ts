@@ -1,3 +1,4 @@
+export { StreamedGraph } from "streamed-graph";
 import {
   LitElement,
   html,
@@ -7,15 +8,27 @@ import {
 } from "lit-element";
 import style from "./style.styl";
 import { VersionedGraph } from "streamed-graph";
-import { DataFactory, 
-  QuadCallback, Quad_Subject, Quad, N3Store } from "n3";
+import {
+  DataFactory,
+  QuadCallback,
+  Quad_Subject,
+  Quad,
+  N3Store,
+  NamedNode
+} from "n3";
 const { namedNode } = DataFactory;
-
 import { Moment, Duration } from "moment";
 import moment from "moment";
+import { getStringValue } from "streamed-graph";
 const RDF = {
   type: namedNode("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
 };
+const EV = {
+  desc: namedNode("http://projects.bigasterisk.com/room/desc")
+};
+const DCTERMS = {
+  created: namedNode("http://purl.org/dc/terms/created"),
+}
 
 interface DisplayRow {
   time: number; // ms
@@ -67,16 +80,14 @@ export class TimebankReport extends LitElement {
     );
 
     this.rows = [];
+    const store = this.graph.store;
     subjs.forEach((subj: Quad_Subject) => {
-      this.graph.store.forEach(
-        ((quad: Quad) => {
-          this.rows.push({time:0, prettyTime: 'x', iconUrl: 'x', desc: 'x'});
-        }) as any,
-        subj,
-        null,
-        null,
-        null
-      );
+      this.rows.push({
+        time: 0,
+        prettyTime: getStringValue(store, subj as NamedNode, DCTERMS.created),
+        iconUrl: '',
+        desc: getStringValue(store, subj as NamedNode, EV.desc)
+      });
     });
 
     this.rows.sort((a, b) => {
@@ -86,11 +97,13 @@ export class TimebankReport extends LitElement {
 
   render() {
     const renderRow = (row: DisplayRow) => {
-      
       return html`
         <tr>
-          <td>${row.prettyTime}</td>
-          <td><img src="${row.iconUrl}" class="eventIcon" /> ${row.desc}</td>
+          <td>t=${row.prettyTime}</td>
+          <td>
+            <img src="${row.iconUrl}" class="eventIcon" />
+            ${row.desc}
+          </td>
         </tr>
       `;
     };
