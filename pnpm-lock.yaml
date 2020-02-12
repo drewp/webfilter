@@ -1,7 +1,7 @@
 dependencies:
   '@polymer/decorators': 3.0.0
   '@polymer/polymer': 3.3.1
-  '@types/jsonld': 1.5.0
+  '@types/jsonld': 1.5.1
   '@types/n3': 1.1.5
   jsonld: 2.0.2
   lit-element: 2.2.1
@@ -448,10 +448,10 @@ packages:
     dev: true
     resolution:
       integrity: sha512-Fb38HkXSVA4L8fGKEZ6le5bB8r6MRWlOCZbVuWZcmOMSCd2wCYOwN1ibj8daIoV9naq7aaOZjrLCoCMptKU/4Q==
-  /@types/jsonld/1.5.0:
+  /@types/jsonld/1.5.1:
     dev: false
     resolution:
-      integrity: sha512-EG2N8JLQ1xDfO6Z/1QRdiUcYX3428CqVRqmY7LyK5or5J1RQ16dpKH6qQ4umVD0vBHU47xHlMeyMbQ6o+6tiYg==
+      integrity: sha512-8XI88iiCBVqmNCMBqPOgJhJPPuiIW1Tp2sXqe3NwD137ljhQVkDWY8cuYBBDZQoBYfGzUJvja527bbwqVbRnHQ==
   /@types/n3/1.1.5:
     dependencies:
       '@types/node': 13.5.3
@@ -7095,7 +7095,7 @@ specifiers:
   '@rollup/plugin-node-resolve': ^7.1.1
   '@rollup/plugin-replace': ^2.3.0
   '@types/jest': ^24.0.25
-  '@types/jsonld': ^1.5.0
+  '@types/jsonld': ^1.5.1
   '@types/n3': ^1.1.5
   '@types/rollup-plugin-postcss': ^2.0.0
   jest: ^24.9.0

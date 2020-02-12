@@ -9,7 +9,7 @@ const workaround_some_browser_detector = "global = window";
 
 const workaround_jsonld_expand_issue = {
   namedExports: {
-    '../../streamed-graph/node_modules/jsonld/lib/index.js': ["expand"], // fixes "expand is not exported by node_modules/jsonld/lib/index.js"
+    '../streamed-graph/node_modules/jsonld/lib/index.js': ["expand"], // fixes "expand is not exported by node_modules/jsonld/lib/index.js"
   },
 };
 

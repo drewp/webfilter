@@ -12,7 +12,7 @@
   "dependencies": {
     "@polymer/decorators": "^3.0.0",
     "@polymer/polymer": "^3.3.1",
-    "@types/jsonld": "^1.5.0",
+    "@types/jsonld": "^1.5.1",
     "@types/n3": "^1.1.5",
     "jsonld": "^2.0.2",
     "lit-element": "^2.2.1",
