@@ -52,6 +52,7 @@ class RuleMaker:
     """
     Build nft rules for redirecting internal hosts' web traffic to mitmproxy.
     """
+
     def __init__(self):
         self.nft = nftables.Nftables(
             sofile='/usr/lib/x86_64-linux-gnu/libnftables.so.1')
@@ -103,16 +104,18 @@ class RuleMaker:
         ])
 
 
+macs_to_send_through_mitmproxy = [
+    # 'dc:ef:ca:ed:58:27', # drewnote
+    '7c:b0:c2:83:31:0f',  # arilaptop
+    'c8:1f:66:13:9b:6d',  # dot
+    '1c:c1:de:56:e6:70',  # music
+    #'0c:fe:45:db:33:9e',  # ps4
+]
+
 if __name__ == '__main__':
     rm = RuleMaker()
     rm.flush()
-    for mac in [
-            #'dc:ef:ca:ed:58:27', # drewnote
-            '7c:b0:c2:83:31:0f', # arilaptop
-            'c8:1f:66:13:9b:6d', # dot
-            '1c:c1:de:56:e6:70', # music
-            '0c:fe:45:db:33:9e', # ps4
-    ]:
+    for mac in macs_to_send_through_mitmproxy:
         rm.capture_outgoing_web_traffic(mac)
     # possibly need a mitmproxy restart after this for very-long-lived
     # connections or tables

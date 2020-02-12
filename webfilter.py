@@ -64,6 +64,12 @@ class TimebankClient:
                 '.bigasterisk.com',
                 '.wikimedia.org',
                 '.wikipedia.org',
+                '.repl.it',
+                '.gravatar.com',
+                '.polyfill.io',
+                '.cloudflare.com',
+                '.khanacademy.org',
+                '.cdn.kastatic.org',
         )):
             return True
 
@@ -157,7 +163,16 @@ class Webfilter:
 
     def response(self, flow: http.HTTPFlow):
         too_boring = {
+            "https://app.slack.com/boot/block-kit-builder.html",
+            "https://app.slack.com/boot/client.html",
+            "https://app.slack.com/boot/docs.html",
+            "https://app.slack.com/boot/workflow-builder.html",
+            "https://beacons.gvt2.com/domainreliability/upload-nel",
+            "https://beacons2.gvt2.com/domainreliability/upload-nel",
+            "https://beacons4.gvt2.com/domainreliability/upload-nel",
+            "https://mail.google.com/domainreliability/upload",
             'http://www.google.com/gen_204',
+            'https://api.rescuetime.com/collect',
         }
         if flow.response.headers.get('content-type', '').startswith('text/html'):
             client_ip = flow.client_conn.ip_address[0].split(':')[-1]
