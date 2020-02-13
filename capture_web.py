@@ -27,22 +27,22 @@ def match_source_mac(mac):
     }}
 
 
-def match_dport(port):
+def match_dport(protocol, port):
     return {"match": {
-        "left": {"payload": {"protocol": "tcp", "field": "dport"}},
+        "left": {"payload": {"protocol": protocol, "field": "dport"}},
         "op": "==",
         "right": port
     }}
 
 
-def redirect_rule(table, chain, source_match, attempt_dport, redirect_port):
+def redirect_rule(table, chain, source_match, protocol, attempt_dport, redirect_port):
     return {'rule': {
         'family': 'inet',
         'table': table,
         'chain': chain,
         'expr': [
             source_match,
-            match_dport(attempt_dport),
+            match_dport(protocol, attempt_dport),
             {"redirect": {"port": redirect_port}},
         ]
     }}
@@ -78,6 +78,16 @@ class RuleMaker:
         chain = 'prerouting'
         match = match_source_mac(mac)
 
+        blocks = []
+        for port in [80, 443]:
+            for protocol in ['tcp', 'udp']:
+                blocks.append({'add': redirect_rule(nat_table,
+                                  chain,
+                                  match,
+                                  protocol=protocol,
+                                  attempt_dport=port,
+                                  redirect_port=self.mitm_proxy_local_port)})
+
         self.nft_run([
             {'add': {'table': {
                 'family': 'inet',
@@ -90,18 +100,7 @@ class RuleMaker:
                 'type': 'nat',
                 'hook': 'prerouting',
                 'prio': -100,
-            }}},
-            {'add': redirect_rule(nat_table,
-                                  chain,
-                                  match,
-                                  attempt_dport=80,
-                                  redirect_port=self.mitm_proxy_local_port)},
-            {'add': redirect_rule(nat_table,
-                                  chain,
-                                  match,
-                                  attempt_dport=443,
-                                  redirect_port=self.mitm_proxy_local_port)},
-        ])
+            }}}] + blocks)
 
 
 macs_to_send_through_mitmproxy = [
