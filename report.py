@@ -47,7 +47,7 @@ def quadsForEvent(doc):
         ret.extend([
             (uri, RDF.type, ROOM['WebRequest'],  ctx),
         ])
-        thumbnailUrl = URIRef('youtube')
+        thumbnailUrl = URIRef('/lib/fontawesome/5.12.1/svgs/brands/youtube.svg')
         if 'watchtime' in doc:
             wt = doc['watchtime']
             ret.extend([
@@ -56,11 +56,14 @@ def quadsForEvent(doc):
                 (uri, ROOM['videoDuration'], Literal(wt['len']), ctx),
                  ])
         else:
+            vid = doc['watchPage'].split('v=')[1].split('&')[0]
             ret.extend([
                 (uri, ROOM['viewUrl'], URIRef(doc['watchPage']), ctx),
+                (uri, ROOM['videoThumbnailUrl'], 
+                 URIRef(f'https://img.youtube.com/vi/{vid}/default.jpg'), ctx),
             ])
     elif tag == 'slackChat':
-        thumbnailUrl = URIRef('slack')
+        thumbnailUrl = URIRef('/lib/fontawesome/5.12.1/svgs/brands/slack.svg')
         ret.extend([
             (uri, RDF.type, ROOM['Chat'], ctx),
             (uri, ROOM['desc'], Literal(textFromSlack(doc['message'])), ctx),
@@ -68,7 +71,7 @@ def quadsForEvent(doc):
     elif tag == 'htmlPage':
         if url_category.too_boring_to_log(doc['url']):
             raise Boring()
-        thumbnailUrl = URIRef('chrome')
+        thumbnailUrl = URIRef('/lib/fontawesome/5.12.1/svgs/brands/chrome.svg')
         ret.extend([
             (uri, ROOM['link'], URIRef(doc['url']), ctx),
         ])

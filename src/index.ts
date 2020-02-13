@@ -2,44 +2,50 @@ export { StreamedGraph } from "streamed-graph";
 import {
   LitElement,
   html,
+  TemplateResult,
   customElement,
   property,
-  unsafeCSS
+  unsafeCSS,
 } from "lit-element";
 import style from "./style.styl";
 import { VersionedGraph } from "streamed-graph";
-import {
-  DataFactory,
-  QuadCallback,
-  Quad_Subject,
-  Quad,
-  N3Store,
-  NamedNode
-} from "n3";
+import { Quad, DataFactory, Quad_Subject, N3Store, NamedNode } from "n3";
 const { namedNode } = DataFactory;
 import { Moment, Duration } from "moment";
 import moment from "moment";
 import { getStringValue } from "streamed-graph";
-const RDF = {
-  type: namedNode("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
-};
-const EV = {
-  desc: namedNode("http://projects.bigasterisk.com/room/desc"),
-  thumbnailUrl: namedNode("http://projects.bigasterisk.com/room/thumbnailUrl"),
-  link: namedNode("http://projects.bigasterisk.com/room/link")
-};
-const DCTERMS = {
-  created: namedNode("http://purl.org/dc/terms/created"),
-  creator: namedNode("http://purl.org/dc/terms/creator"),
+
+// move upstream somewhere
+function Namespace(prefix: string): { [key: string]: NamedNode } {
+  return new Proxy(
+    {},
+    {
+      get(target: object, name: string) {
+        return namedNode(prefix + name);
+      },
+    }
+  );
 }
 
+const RDF = Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+const EV = Namespace("http://projects.bigasterisk.com/room/");
+const DCTERMS = Namespace("http://purl.org/dc/terms/");
+
 interface DisplayRow {
-  time: number; // ms
+  time: Moment;
   creator: string;
   prettyTime: string;
   thumbnailUrl: string | undefined;
-  desc: string;
+  uri: NamedNode;
 }
+
+const userFromMac = (mac: string) => {
+  if (mac == "7c:b0:c2:83:31:0f") return "ari laptop";
+  if (!mac) {
+    mac = "unknown";
+  }
+  return `(todo: ${mac})`;
+};
 
 @customElement("timebank-report")
 export class TimebankReport extends LitElement {
@@ -77,43 +83,102 @@ export class TimebankReport extends LitElement {
   }
 
   onGraphChange(graph: N3Store) {
-    const subjs = this.graph.store.getSubjects(
-      RDF.type,
-      namedNode("http://projects.bigasterisk.com/room/Activity"),
-      null
-    );
+    const subjs = this.graph.store.getSubjects(RDF.type, EV.Activity, null);
 
     this.rows = [];
     const store = this.graph.store;
     subjs.forEach((subj: Quad_Subject) => {
-      const t = getStringValue(store, subj as NamedNode, DCTERMS.created);
+      const t = moment(
+        getStringValue(store, subj as NamedNode, DCTERMS.created)
+      );
+      const uri = subj as NamedNode;
       this.rows.push({
-        time: +new Date(t),
-        prettyTime: t,
-        thumbnailUrl: getStringValue(store, subj as NamedNode, EV.thumbnailUrl),
-        desc: getStringValue(store, subj as NamedNode, EV.desc),
-        creator: getStringValue(store, subj as NamedNode, DCTERMS.creator)
+        uri: uri,
+        time: t,
+        prettyTime: t.format("YYYY-MM-DD ddd HH:mm:ss"),
+        thumbnailUrl: getStringValue(store, uri, EV.thumbnailUrl),
+        creator: userFromMac(getStringValue(store, uri, DCTERMS.creator)),
       });
-      const link = getStringValue(store, subj as NamedNode, EV.link);
-      if (link) {
-        this.rows[this.rows.length-1].desc += ' ' + link;
-      }
     });
 
     this.rows.sort((a, b) => {
-      return b.time - a.time;
+      return b.time.valueOf() - a.time.valueOf();
     });
   }
 
   render() {
     const renderRow = (row: DisplayRow) => {
+      const store = this.graph.store;
+
+      const contents: Array<TemplateResult> = [];
+      const gather = (q: Quad) => {
+        if (
+          q.predicate.equals(RDF.type) ||
+          q.predicate.equals(EV.thumbnailUrl) ||
+          q.predicate.equals(DCTERMS.created) ||
+          q.predicate.equals(DCTERMS.creator)
+        ) {
+          // already in a header column (except some types)
+        } else {
+          if (q.predicate.equals(EV.desc)) {
+            contents.push(
+              html`
+                <span class="chatLine">${q.object.value}</span>
+              `
+            );
+          } else if (q.predicate.equals(EV.link)) {
+            contents.push(
+              html`
+                <a href="${q.object.value}" class="requested"
+                  >${q.object.value}</a
+                >
+              `
+            );
+          } else if (q.predicate.equals(EV.viewUrl)) {
+            const thumb = getStringValue(store, row.uri, EV.videoThumbnailUrl);
+            contents.push(
+              html`
+                View <a href="${q.object.value}">${q.object.value}</a>
+                <img class="ytThumb" src="${thumb}" />
+              `
+            );
+          } else if (q.predicate.equals(EV.videoThumbnailUrl)) {
+            //  pass
+          } else if (q.predicate.equals(EV.currentTime)) {
+            const duration = Math.round(
+              parseFloat(getStringValue(store, row.uri, EV.videoDuration))
+            );
+            contents.push(
+              html`
+                Watched ${Math.round(parseFloat(q.object.value))} of ${duration}
+                seconds
+              `
+            );
+          } else if (q.predicate.equals(EV.videoDuration)) {
+            // pass
+          } else {
+            contents.push(
+              html`
+                ${q.predicate.value} => ${q.object.value};
+              `
+            );
+          }
+        }
+      };
+      store.forEach(gather, row.uri, null, null, null);
+      let rowClasses = "";
+      if (moment().diff(row.time) < 2 /*hr*/ * 60 * 60 * 1000) {
+        rowClasses += " recent";
+      }
       return html`
-        <tr>
-        <td class="time">${row.prettyTime}</td>
-        <td class="time">${row.creator}</td>
+        <tr class="${rowClasses}">
+          <td class="created">${row.prettyTime}</td>
+          <td class="creator">${row.creator}</td>
           <td>
-            [${row.thumbnailUrl}]<img src="${row.thumbnailUrl}" class="eventIcon" />
-            ${row.desc}
+            <img class="rowIcon" src="${row.thumbnailUrl}" />
+          </td>
+          <td>
+            ${contents}
           </td>
         </tr>
       `;
@@ -125,6 +190,7 @@ export class TimebankReport extends LitElement {
           <tr>
             <th>time</th>
             <th>host</th>
+            <th></th>
             <th></th>
           </tr>
           ${this.rows.map(renderRow)}

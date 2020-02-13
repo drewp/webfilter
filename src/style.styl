@@ -1,5 +1,40 @@
 html
   background: #aaa
 
-.time
-  white-space nowrap
+td.created, td.creator
+  white-space: nowrap
+
+td.creator
+  text-align: center
+
+.ytThumb
+  vertical-align: middle
+
+.chatLine
+  font-style: italic
+
+a.requested
+  display: inline-block
+  overflow: hidden
+  width: 24em
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.rowIcon
+  height: 1.5em
+  opacity: 0.6
+
+table
+  border-collapse: collapse
+table td 
+  padding-left: 3px
+  padding-right: 3px
+
+tr:nth-child(even)
+  background: #ccc
+tr:nth-child(odd)
+  background: #ddd
+tr.recent:nth-child(even) td.created
+  background: #ddc
+tr.recent:nth-child(odd)  td.created
+  background: #eed
