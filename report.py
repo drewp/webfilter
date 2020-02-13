@@ -2,13 +2,13 @@
 serve a live rdf graph of what's happening in the
 mongo.timebank.webproxy event log, plus maybe some historical analyses
 """
-import sys, datetime, logging
+import datetime
 
 from dateutil.tz import tzlocal
 from docopt import docopt
 from pymongo import MongoClient
 from rdflib import Namespace, Literal, URIRef, RDF
-from twisted.internet import reactor, task, defer
+from twisted.internet import reactor, task
 import cyclone.web
 from typing import Set
 
@@ -16,8 +16,12 @@ from standardservice.logsetup import log, verboseLogging
 from patchablegraph import PatchableGraph, CycloneGraphEventsHandler, CycloneGraphHandler
 from rdfdb.patch import Patch
 
+import url_category
+
 ROOM = Namespace("http://projects.bigasterisk.com/room/")
 DCTERMS = Namespace("http://purl.org/dc/terms/")
+
+class Boring(ValueError): pass
 
 def localTimeLiteral(t: datetime.datetime) -> Literal:
     return Literal(t.astimezone(tzlocal()).isoformat(), datatype=ROOM.todo)
@@ -62,6 +66,8 @@ def quadsForEvent(doc):
             (uri, ROOM['desc'], Literal(textFromSlack(doc['message'])), ctx),
         ])
     elif tag == 'htmlPage':
+        if url_category.too_boring_to_log(doc['url']):
+            raise Boring()
         thumbnailUrl = URIRef('chrome')
         ret.extend([
             (uri, ROOM['link'], URIRef(doc['url']), ctx),
@@ -81,8 +87,11 @@ def update(masterGraph, eventsInGraph, coll):
         uri = uriFromMongoEvent(doc['_id'])
         recentEvents.add(uri)
         if uri not in eventsInGraph:
-            masterGraph.patch(Patch(addQuads=quadsForEvent(doc)))
-            eventsInGraph.add(uri)
+            try:
+                masterGraph.patch(Patch(addQuads=quadsForEvent(doc)))
+                eventsInGraph.add(uri)
+            except Boring:
+                pass
 
     for uri in eventsInGraph.difference(recentEvents):
         oldStatements = list(masterGraph.quads((uri, None, None, None)))
