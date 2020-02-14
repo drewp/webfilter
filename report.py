@@ -3,6 +3,7 @@ serve a live rdf graph of what's happening in the
 mongo.timebank.webproxy event log, plus maybe some historical analyses
 """
 import datetime
+import urllib.parse
 
 from dateutil.tz import tzlocal
 from docopt import docopt
@@ -59,7 +60,7 @@ def quadsForEvent(doc):
             vid = doc['watchPage'].split('v=')[1].split('&')[0]
             ret.extend([
                 (uri, ROOM['viewUrl'], URIRef(doc['watchPage']), ctx),
-                (uri, ROOM['videoThumbnailUrl'], 
+                (uri, ROOM['videoThumbnailUrl'],
                  URIRef(f'https://img.youtube.com/vi/{vid}/default.jpg'), ctx),
             ])
     elif tag == 'slackChat':
@@ -72,6 +73,11 @@ def quadsForEvent(doc):
         if url_category.too_boring_to_log(doc['url']):
             raise Boring()
         thumbnailUrl = URIRef('/lib/fontawesome/5.12.1/svgs/brands/chrome.svg')
+        query = urllib.parse.splitquery(doc['url'])[1]
+        if query:
+            d = urllib.parse.parse_qs(query)
+            if 'q' in d:
+                ret.append((uri, ROOM['searchQuery'], Literal(d['q'][0]), ctx))
         ret.extend([
             (uri, ROOM['link'], URIRef(doc['url']), ctx),
         ])

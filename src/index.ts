@@ -156,6 +156,8 @@ export class TimebankReport extends LitElement {
             );
           } else if (q.predicate.equals(EV.videoDuration)) {
             // pass
+          } else if (q.predicate.equals(EV.searchQuery)) {
+              contents.push(html`Search for <pre>${q.object.value}</pre>`);
           } else {
             contents.push(
               html`
