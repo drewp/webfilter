@@ -11,8 +11,9 @@ serv:webfilter_image a :DockerImage;
       :localDockerFlags (
         "-v" "`pwd`:/opt"
       );
+      :prodCmdline ("mitmdump");
       :dockerFile "Dockerfile"
-      .
+.
 
 serv:webfilter a :Service;
       :image serv:webfilter_image;
@@ -28,7 +29,7 @@ serv:webfilter_report_image a :DockerImage;
       "-v" "`pwd`:/opt"
       );
       :localRunCmdline ("python3" "report.py" "-v");
-      :prodRunCmdline ("python3" "report.py");
+      :prodCmdline ("python3" "report.py");
       :dockerFile "Dockerfile"
 .
 
