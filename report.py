@@ -92,15 +92,21 @@ def update(masterGraph, eventsInGraph, coll):
     eventsInGraph = set()
     recentEvents = set()
 
-    for doc in coll.find({}, sort=[('t', -1)], limit=100):
+    fetched_nonboring_docs = 0
+    for doc in coll.find({}, sort=[('t', -1)], limit=1000):
         uri = uriFromMongoEvent(doc['_id'])
         recentEvents.add(uri)
-        if uri not in eventsInGraph:
+        if uri in eventsInGraph:
+            fetched_nonboring_docs += 1
+        else:
             try:
                 masterGraph.patch(Patch(addQuads=quadsForEvent(doc)))
                 eventsInGraph.add(uri)
+                fetched_nonboring_docs += 1
             except Boring:
                 pass
+        if fetched_nonboring_docs > 100:
+            break
 
     for uri in eventsInGraph.difference(recentEvents):
         oldStatements = list(masterGraph.quads((uri, None, None, None)))
