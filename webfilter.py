@@ -152,7 +152,10 @@ class Webfilter:
                 'watchPage': url,
             })
 
-        if url.startswith('https://www.youtube.com/api/stats/watchtime'):
+        if url.startswith((
+                'https://www.youtube.com/api/stats/watchtime',
+                'https://www.youtube.com/api/stats/playback',
+        ):
             d = dict(flow.request.query)
             self.db.write_event(client_ip, killed, {
                 'tag': 'youtube',
@@ -161,6 +164,7 @@ class Webfilter:
                     'pos': d.get('cmt'),
                     'len': d.get('len'),
                     'vid': d.get('docid'),
+                    'referrer': d.get('referrer'),
                 },
             })
 

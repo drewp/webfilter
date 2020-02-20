@@ -39,6 +39,7 @@ def too_boring_to_log(url: str):
         'https://bigasterisk.slack.com/?redir=',
         'https://cello.client-channel.google.com/',
         'https://clients4.google.com/invalidation/lcs/client',
+        'https://content.googleapis.com/static/proxy.html',
         'https://docs.google.com/document/backgroundsync',
         'https://docs.google.com/document/offline/comment',
         'https://docs.google.com/document/offline/edit',
@@ -58,10 +59,12 @@ def too_boring_to_log(url: str):
         'https://realtimesupport.clients6.google.com/static/proxy.html',
         'https://www.youtube.com/api/stats/atr',
         'https://www.youtube.com/yts/',
+        'https://www.youtube.com/api/stats/qoe',
     )):
         return True
     for substr in [
         '/client_204',
+        '/csi_204',
         '/domainreliability/upload-nel',
         '/favicon.ico',
         '/gen_204',
