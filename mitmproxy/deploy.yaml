@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mitmproxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mitmproxy
+  template:
+    metadata:
+      labels:
+        app: mitmproxy
+    spec:
+      hostNetwork: true
+      containers:
+        - name: mitmproxy
+          image: bang5:5000/mitmproxy_image
+          command: ["mitmdump"]
+          securityContext: { capabilities: { add: [NET_ADMIN, SYS_PTRACE] } }
+          ports:
+            - containerPort: 8443
+            # - containerPort: 80
+          volumeMounts: [{ name: mitmproxy-home, mountPath: /root/.mitmproxy }]
+      volumes:
+        - { name: mitmproxy-home, hostPath: { path: /my/proj/webfilter/mitmproxy/config } }
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: "kubernetes.io/hostname"
+                    operator: In
+                    values: ["bang"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mitmproxy
+spec:
+  type: LoadBalancer
+  ports:
+    - { port: 8443, targetPort: 8443, name: https-and-maybe-http }
+    # - { port: 80, targetPort: 80, name: onboarding }
+  selector:
+    app: mitmproxy

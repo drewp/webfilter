@@ -1,21 +1,28 @@
+"""plugin script for mitmdump that rejects some web requests"""
 import datetime
 import inspect
 import json
+import os
 import sys
 import time
 import traceback
 from typing import Dict, Set
 
 from dateutil import tz
-
-from mitmproxy import http
+import mitmproxy.flow
+import mitmproxy.http
+import mitmproxy.proxy.protocol
+import prometheus_client
 from pymongo import MongoClient
 from rdflib import ConjunctiveGraph, Namespace
-import url_category
+
+from . import url_category
+
 
 def plog(msg):
     caller = inspect.currentframe().f_back
-    print(f'{caller.f_code.co_filename}:{caller.f_lineno}-->', msg, file=sys.stderr)
+    print(f'{caller.f_code.co_filename}:{caller.f_lineno}--> {msg}', file=sys.stdout, flush=True)
+
 
 class TimebankClient:
     ROOM = Namespace('http://projects.bigasterisk.com/room/')
@@ -47,17 +54,22 @@ class TimebankClient:
 
     def _get_graphs(self):
         graph = ConjunctiveGraph()
-        graph.parse('http://bang:10006/graph/timebank', format='trig')
-        graph.parse('http://bang:9070/graph/wifi', format='trig')
+        try:
+            graph.parse('http://bang:10006/graph/timebank', format='trig')
+            graph.parse('http://bang:9070/graph/wifi', format='trig')
+        except Exception as e:
+            plog(f"failed to fetch graphs: {e!r}")
+            time.sleep(2)
+
         plog(f'fetched {len(graph)} statements from timebank and wifi')
         return graph
 
     def allowed(self, client_ip, url):
+        return True
         now = time.time()
         if self._last_refresh < now - 5:
             self.refresh()
             self._last_refresh = now
-
 
         try:
             mac = self._mac_from_ip[client_ip]
@@ -66,7 +78,7 @@ class TimebankClient:
             return False
 
         if mac not in self._currently_blocked_mac:
-            plog(f'known and not blocked')
+            plog('known and not blocked')
             return True
 
         if url_category.always_allowed(url):
@@ -78,10 +90,12 @@ class TimebankClient:
     def mac_from_ip(self, ip):
         return self._mac_from_ip.get(ip, '')
 
+
 class MongodbLog:
+
     def __init__(self, mac_from_ip):
         self.mac_from_ip = mac_from_ip
-        conn = MongoClient('bang', tz_aware=True)
+        conn = MongoClient(os.environ['MONGODB_SERVICE_HOST'], tz_aware=True)
         db = conn.get_database('timebank')
         self.coll = db.get_collection('webproxy')
 
@@ -92,20 +106,32 @@ class MongodbLog:
         doc['killed'] = killed
         self.coll.insert_one(doc)
 
+
 class Webfilter:
+
     def __init__(self):
+        plog("Webfilter init")
         self.timebank = TimebankClient()
         self.timebank.refresh()
 
         self.db = MongodbLog(self.timebank.mac_from_ip)
 
-    def request(self, flow: http.HTTPFlow):
+    def clientconnect(self, layer: mitmproxy.proxy.protocol.Layer):
+        plog(f'cnonect {layer}')
+
+    def request(self, flow: mitmproxy.http.HTTPFlow):
         try:
             client_ip = flow.client_conn.ip_address[0].split(':')[-1]
-
+            plog(f'req from {client_ip}')
             url = flow.request.pretty_url
 
             plog(f'request from {client_ip} to {url}')
+            if url == "http://10.5.0.1:8443/metrics":
+                flow.response = mitmproxy.http.HTTPResponse.make(
+                    200,
+                    prometheus_client.generate_latest(),
+                )
+                return
 
             killed = False
             if not self.timebank.allowed(client_ip, url):
@@ -114,17 +140,16 @@ class Webfilter:
 
             self.save_interesting_events(flow, url, client_ip, killed)
         except Exception:
-            traceback.print_exc()
-            raise
+            traceback.print_exc(file=sys.stdout)
+            flow.kill()
+            # but don't raise or crash, or webfilter.py just won't be loaded and all reqs go through!
 
     def save_interesting_events(self, flow, url, client_ip, killed):
         host = flow.request.pretty_host
         method = flow.request.method
         path = flow.request.path_components
 
-        if (host == 'bigasterisk.slack.com' and
-            method == 'POST' and
-            path and path[-1] == 'chat.postMessage'):
+        if (host == 'bigasterisk.slack.com' and method == 'POST' and path and path[-1] == 'chat.postMessage'):
             slack_channel = flow.request.multipart_form[b'channel'].decode('ascii')
             message = json.loads(flow.request.multipart_form[b'blocks'])
             self.db.write_event(client_ip, killed, {
@@ -133,9 +158,7 @@ class Webfilter:
                 'message': message,
             })
 
-        if (host == 'discordapp.com' and
-            method == 'POST' and
-            path and path[-1] == 'messages'):
+        if (host == 'discordapp.com' and method == 'POST' and path and path[-1] == 'messages'):
             if path[2] != 'channels':
                 raise NotImplementedError
             discord_channel = path[3]
@@ -157,18 +180,19 @@ class Webfilter:
                 'https://www.youtube.com/api/stats/playback',
         )):
             d = dict(flow.request.query)
-            self.db.write_event(client_ip, killed, {
-                'tag': 'youtube',
-                'watchtime': {
-                    'state': d.get('state'),
-                    'pos': d.get('cmt'),
-                    'len': d.get('len'),
-                    'vid': d.get('docid'),
-                    'referrer': d.get('referrer'),
-                },
-            })
+            self.db.write_event(
+                client_ip, killed, {
+                    'tag': 'youtube',
+                    'watchtime': {
+                        'state': d.get('state'),
+                        'pos': d.get('cmt'),
+                        'len': d.get('len'),
+                        'vid': d.get('docid'),
+                        'referrer': d.get('referrer'),
+                    },
+                })
 
-    def response(self, flow: http.HTTPFlow):
+    def response(self, flow: mitmproxy.http.HTTPFlow):
         if flow.response.headers.get('content-type', '').startswith('text/html'):
             client_ip = flow.client_conn.ip_address[0].split(':')[-1]
             url = flow.request.pretty_url
@@ -180,6 +204,5 @@ class Webfilter:
             })
 
 
-addons = [
-    Webfilter()
-]
+plog('registering webfilter')
+addons = [Webfilter()]

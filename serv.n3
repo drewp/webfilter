@@ -2,30 +2,12 @@
 @prefix auth: <http://bigasterisk.com/ns/serv/auth#> .
 @prefix serv: <http://bigasterisk.com/services/> .
 
-serv:webfilter_image a :DockerImage;
-      :internalPort 8443;
-      :prodDockerFlags (
-        "-p" "8443:8443"
-        "-v" "`pwd`/mitmproxy:/root/.mitmproxy"
-        "--net=host");
-      :localDockerFlags (
-        "-v" "`pwd`:/opt"
-      );
-      :prodCmdline ("mitmdump");
-      :dockerFile "Dockerfile"
-.
-
-serv:webfilter a :Service;
-      :image serv:webfilter_image;
-      :serverHost "bang"
-.
 
 serv:webfilter_report_image a :DockerImage;
       :internalPort 9074;
       :prodDockerFlags (
-      "-p" "9074:9074"
       "--net=host");
-      :localDockerFlags (
+      :localRunDockerFlags (
       "-v" "`pwd`:/opt"
       );
       :localRunCmdline ("python3" "report.py" "-v");
@@ -35,6 +17,7 @@ serv:webfilter_report_image a :DockerImage;
 
 serv:webfilter_report a :Service, :NpmPackage;
       :image serv:webfilter_report_image;
+      :port 9074;
       :path "/webfilter/";
       :openid auth:admin;
       :serverHost "bang"

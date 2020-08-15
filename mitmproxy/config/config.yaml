@@ -168,7 +168,7 @@ save_stream_file:
 save_stream_filter:
 
 # Execute a script. Type sequence of str.
-scripts: ["webfilter.py"]
+scripts: ["/root/.mitmproxy/webfilter.py"]
 
 # Start a proxy server. Enabled by default. Type bool.
 server: true
