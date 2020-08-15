@@ -20,7 +20,6 @@ RUN pip3 install -U 'https://github.com/drewp/cyclone/archive/python3.zip?v3'
 
 RUN apt-get install -y iptables
 
-COPY *.py *.html ./
-COPY build/ build
+COPY *.py *.html *.sh ./
 
-#CMD [ "mitmdump" ]
+CMD [ "/bin/sh", "entrypoint.sh" ]

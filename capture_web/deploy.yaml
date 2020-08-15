@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capture-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: capture-web
+  template:
+    metadata:
+      labels:
+        app: capture-web
+    spec:
+      hostNetwork: true
+      containers:
+        - name: capture-web
+          image: bang5:5000/capture_web_image
+          securityContext: { capabilities: { add: [NET_ADMIN, NET_RAW] } }
+          ports:
+            - containerPort: 10001
+          volumeMounts:
+            - { name: host-run, mountPath: /run } # for /run/xtables.lock
+      volumes:
+        - { name: host-run, hostPath: { path: /run } }
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: "kubernetes.io/hostname"
+                    operator: In
+                    values: ["bang"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: capture-web
+spec:
+  ports:
+    - { port: 80, targetPort: 10001, name: http }
+  selector:
+    app: capture-web
