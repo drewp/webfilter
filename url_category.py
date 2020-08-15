@@ -1,24 +1,31 @@
 import urllib.parse
 
 
-def always_whitelisted(url: str):
+def always_allowed(url: str):
     netloc = urllib.parse.urlparse(url).netloc
     return ('.' + netloc).endswith((
+        '.bigasterisk.com',
+        '.bootstrapcdn.com',
+        '.cc0textures.com',
+        '.struffelproductions.com',
+        '.cdn.kastatic.org',
+        '.clever.com',
+        '.cloudflare.com',
+        '.github.com',
         '.gmail.com',
         '.google.com',
         '.googleapis.com',
+        '.gravatar.com',
         '.gstatic.com',
+        '.khanacademy.org',
+        '.polyfill.io',
+        '.repl.it',
         '.slack-edge.com',
         '.slack.com',
-        '.bigasterisk.com',
+        '.slack-imgs.com',
+        '.studiesweekly.com',
         '.wikimedia.org',
         '.wikipedia.org',
-        '.repl.it',
-        '.gravatar.com',
-        '.polyfill.io',
-        '.cloudflare.com',
-        '.khanacademy.org',
-        '.cdn.kastatic.org',
     ))
 
 
@@ -34,11 +41,12 @@ def too_boring_to_log(url: str):
     }:
         return True
     if url.startswith((
-        'https://app.slack.com/boot/',
         'https://accounts.google.com/o/oauth2/postmessageRelay',
+        'https://app.slack.com/boot/',
         'https://bigasterisk.slack.com/?redir=',
         'https://cello.client-channel.google.com/',
         'https://clients4.google.com/invalidation/lcs/client',
+        'https://clients6.google.com/static/proxy.html',
         'https://content.googleapis.com/static/proxy.html',
         'https://docs.google.com/document/backgroundsync',
         'https://docs.google.com/document/offline/',
@@ -58,9 +66,12 @@ def too_boring_to_log(url: str):
         'https://drive.google.com/drive/serviceworker/update',
         'https://lh3.google.com/u/0/d/',
         'https://realtimesupport.clients6.google.com/static/proxy.html',
+        'https://signaler-pa.clients6.google.com/',
+        'https://www.google.com/_/VisualFrontendUi/gen204/',
         'https://www.youtube.com/api/stats/atr',
-        'https://www.youtube.com/yts/',
         'https://www.youtube.com/api/stats/qoe',
+        'https://calendar.google.com/calendar/hello',
+        'https://www.youtube.com/yts/',
     )):
         return True
     for substr in [

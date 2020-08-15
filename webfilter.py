@@ -69,8 +69,8 @@ class TimebankClient:
             plog(f'known and not blocked')
             return True
 
-        if url_category.always_whitelisted(url):
-            plog(f'whitelisted for {url}')
+        if url_category.always_allowed(url):
+            plog(f'allowed: {url}')
             return True
 
         return False
@@ -155,7 +155,7 @@ class Webfilter:
         if url.startswith((
                 'https://www.youtube.com/api/stats/watchtime',
                 'https://www.youtube.com/api/stats/playback',
-        ):
+        )):
             d = dict(flow.request.query)
             self.db.write_event(client_ip, killed, {
                 'tag': 'youtube',

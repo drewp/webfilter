@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 To see a dump in nft-language:
   nft list ruleset
@@ -6,6 +7,14 @@ To see a dump in nft-language:
 See
 https://github.com/firewalld/firewalld/blob/master/src/firewall/core/nftables.py
 for one of the few other published users of the nft json API.
+
+dot# cd /usr/share/ca-certificates
+dot# mkdir extra
+dot# cat > extra/mitmproxy.crt
+(paste mitmproxy/mitmproxy-ca-cert.cer)
+dot# sudo dpkg-reconfigure ca-certificates
+
+
 """
 from pprint import pprint
 import nftables
