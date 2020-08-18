@@ -60,7 +60,7 @@ console_default_contentview: auto
 
 # EventLog verbosity. Valid values are 'error', 'warn', 'info', 'alert',
 # 'debug'.
-console_eventlog_verbosity: info
+console_eventlog_verbosity: debug
 
 # Set the flowlist layout Valid values are 'default', 'list', 'table'.
 console_flowlist_layout: default

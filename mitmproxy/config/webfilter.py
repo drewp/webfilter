@@ -16,7 +16,7 @@ import prometheus_client
 from pymongo import MongoClient
 from rdflib import ConjunctiveGraph, Namespace
 
-from . import url_category
+import url_category
 
 
 def plog(msg):
@@ -58,32 +58,32 @@ class TimebankClient:
             graph.parse('http://bang:10006/graph/timebank', format='trig')
             graph.parse('http://bang:9070/graph/wifi', format='trig')
         except Exception as e:
-            plog(f"failed to fetch graphs: {e!r}")
-            time.sleep(2)
+            plog(f"failed to fetch graph(s): {e!r}")
 
         plog(f'fetched {len(graph)} statements from timebank and wifi')
         return graph
 
     def allowed(self, client_ip, url):
-        return True
         now = time.time()
         if self._last_refresh < now - 5:
             self.refresh()
             self._last_refresh = now
 
-        try:
-            mac = self._mac_from_ip[client_ip]
-            plog(f'request from {mac} {client_ip}')
-        except KeyError:
-            return False
+        # try:
+        #     mac = self._mac_from_ip[client_ip]
+        #     plog(f'request from {mac} {client_ip}')
+        # except KeyError:
+        #     return False
 
-        if mac not in self._currently_blocked_mac:
-            plog('known and not blocked')
-            return True
+        # if mac not in self._currently_blocked_mac:
+        #     plog('known and not blocked')
+        #     return True
 
         if url_category.always_allowed(url):
             plog(f'allowed: {url}')
             return True
+        else:
+            plog(f'not in always_allowed: {url}')
 
         return False
 
@@ -94,10 +94,14 @@ class TimebankClient:
 class MongodbLog:
 
     def __init__(self, mac_from_ip):
-        self.mac_from_ip = mac_from_ip
-        conn = MongoClient(os.environ['MONGODB_SERVICE_HOST'], tz_aware=True)
-        db = conn.get_database('timebank')
-        self.coll = db.get_collection('webproxy')
+        try:
+            self.mac_from_ip = mac_from_ip
+            conn = MongoClient(os.environ['MONGODB_SERVICE_HOST'], tz_aware=True)
+            db = conn.get_database('timebank')
+            self.coll = db.get_collection('webproxy')
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
+            raise
 
     def write_event(self, client_ip, killed, doc):
         doc['t'] = datetime.datetime.now(tz.tzlocal())
@@ -116,21 +120,28 @@ class Webfilter:
 
         self.db = MongodbLog(self.timebank.mac_from_ip)
 
-    def clientconnect(self, layer: mitmproxy.proxy.protocol.Layer):
-        plog(f'cnonect {layer}')
+    # def clientconnect(self, layer: mitmproxy.proxy.protocol.Layer):
+    #     plog(f'connect {layer}')
+
+    def _internal_url(self, url, flow):
+        if url == "http://10.5.0.1:8443/metrics":
+            flow.response = mitmproxy.http.HTTPResponse.make(
+                200,
+                prometheus_client.generate_latest(),
+            )
+            return
+
+        flow.kill()
 
     def request(self, flow: mitmproxy.http.HTTPFlow):
         try:
             client_ip = flow.client_conn.ip_address[0].split(':')[-1]
-            plog(f'req from {client_ip}')
             url = flow.request.pretty_url
 
             plog(f'request from {client_ip} to {url}')
-            if url == "http://10.5.0.1:8443/metrics":
-                flow.response = mitmproxy.http.HTTPResponse.make(
-                    200,
-                    prometheus_client.generate_latest(),
-                )
+            if '10.5.0.1' in url:
+                # don't try to fulfill this- it will infinitely route back to mitmdump!
+                self._internal_url(url, flow)
                 return
 
             killed = False

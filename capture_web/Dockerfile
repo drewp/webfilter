@@ -20,6 +20,8 @@ RUN pip3 install -U 'https://github.com/drewp/cyclone/archive/python3.zip?v3'
 
 RUN apt-get install -y iptables
 
-COPY *.py *.html *.sh ./
+COPY *.py *.sh ./
+COPY frontend/build build/
+COPY frontend/index.html index.html
 
 CMD [ "/bin/sh", "entrypoint.sh" ]

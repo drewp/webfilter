@@ -9,6 +9,10 @@ build:
       timezone: "Local"
   artifacts:
   - image: bang5:5000/capture_web_image
+    sync:
+      infer:
+        - frontend/index.html
+        - frontend/build/bundle.js
 deploy:
   kubectl:
     manifests:

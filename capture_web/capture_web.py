@@ -16,12 +16,15 @@ dot# sudo dpkg-reconfigure ca-certificates
 
 
 """
-import os
-import subprocess
+import logging
+
 from flask import Flask
-from flask_restful import Resource, Api, reqparse
+from flask_restful import Api, Resource, reqparse
 from prometheus_flask_exporter import PrometheusMetrics
+
 from rules_iptables import RuleMaker
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger()
 
 if __name__ == '__main__':
 
@@ -32,8 +35,7 @@ if __name__ == '__main__':
     macs_to_send_through_mitmproxy = {
     }
 
-    #mitmdump_ip = os.environ['MITMPROXY_PORT_8443_TCP_ADDR']
-    rm = RuleMaker(route_to_localhost_port='8443')
+    rm = RuleMaker(route_to_localhost_port='8443', capture_interfaces=['ens5', 'enp1s0'])
 
     class Captures(Resource):
 
@@ -49,6 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('capturing', type=bool)
 
     def routingChanged():
+        log.info(' routingChanged')
         pass  # eventsource, tell web page
 
     class CaptureRule(Resource):
@@ -60,11 +63,14 @@ if __name__ == '__main__':
             cap = macs_to_send_through_mitmproxy[mac]
 
             args = parser.parse_args()
+            log.info(f'put req mac={mac} args={args!r}')
             if cap['capturing'] != args['capturing']:
                 if args['capturing']:
+                    log.info(f'request to capture {mac}')
                     rm.capture_outgoing_web_traffic(mac)
                     routingChanged()
                 else:
+                    log.info(f'request to uncapture {mac}')
                     rm.uncapture(mac)
                     routingChanged()
 
@@ -72,6 +78,7 @@ if __name__ == '__main__':
             return cap
 
         def delete(self, mac):
+            log.info(f'request to forget {mac}')
             rm.uncapture(mac)
             routingChanged()
             del macs_to_send_through_mitmproxy[mac]
@@ -81,9 +88,10 @@ if __name__ == '__main__':
 
     @app.route('/')
     def root():
-        return 'root'
+        return open('index.html').read()
 
-    subprocess.check_call(['sh', '-c', 'iptables-save | grep -v capture_web | iptables-restore'])
-    rm.capture_outgoing_web_traffic('00:e0:4c:ae:ed:1e')#'dc:ef:ca:ed:58:27')
+    @app.route('/build/bundle.js')
+    def bundle():
+        return open('build/bundle.js').read()
 
     app.run(port=10001, host="0.0.0.0", debug=False)
