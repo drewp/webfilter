@@ -45,7 +45,7 @@ if __name__ == '__main__':
         def post(self):
             pass
 
-    api.add_resource(Captures, '/captures')
+    api.add_resource(Captures, '/routes')
 
     parser = reqparse.RequestParser()
     parser.add_argument('route', type=str)  # 'normal', 'drop', 'webfilter'
@@ -78,7 +78,7 @@ if __name__ == '__main__':
             del macs_to_send_through_mitmproxy[mac]
             return '', 204
 
-    api.add_resource(CaptureRule, '/captures/<mac>')
+    api.add_resource(CaptureRule, '/routes/<mac>')
 
     @app.route('/')
     def root():

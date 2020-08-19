@@ -47,7 +47,7 @@ def redirect_rule(table, chain, source_match, protocol, attempt_dport, redirect_
                     }
                 },
             ],
-            'comment': 'capture_web',
+            'comment': 'net_routes',
         }
     }
 

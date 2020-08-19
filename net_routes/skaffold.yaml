@@ -1,14 +1,14 @@
 apiVersion: skaffold/v2beta5
 kind: Config
 metadata:
-  name: capture-web
+  name: net-routes
 build:
   tagPolicy:
     dateTime:
       format: "2006-01-02_15-04-05"
       timezone: "Local"
   artifacts:
-  - image: bang5:5000/capture_web_image
+  - image: bang5:5000/net_routes_image
     sync:
       infer:
         - frontend/index.html

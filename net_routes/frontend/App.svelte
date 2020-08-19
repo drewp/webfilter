@@ -1,8 +1,8 @@
 <script>
   import HostRow from "./HostRow.svelte";
 
-  let captures = (async () => {
-    return (await fetch("captures")).json();
+  let routes = (async () => {
+    return (await fetch("routes")).json();
   })();
 
   const sorted = (m) => {
@@ -14,7 +14,7 @@
 
 <main>
   <h1>Edit network routes:</h1>
-  {#await captures}
+  {#await routes}
     <p>loading data...</p>
   {:then m}
     <table>

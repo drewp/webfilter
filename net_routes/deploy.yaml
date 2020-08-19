@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: capture-web
+  name: net-routes
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: capture-web
+      app: net-routes
   template:
     metadata:
       labels:
-        app: capture-web
+        app: net-routes
     spec:
       hostNetwork: true
       containers:
-        - name: capture-web
-          image: bang5:5000/capture_web_image
+        - name: net-routes
+          image: bang5:5000/net_routes_image
           securityContext: { capabilities: { add: [NET_ADMIN, NET_RAW] } }
           ports:
             - containerPort: 10001
@@ -35,9 +35,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: capture-web
+  name: net-routes
 spec:
   ports:
     - { port: 80, targetPort: 10001, name: http }
   selector:
-    app: capture-web
+    app: net-routes

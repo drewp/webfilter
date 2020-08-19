@@ -3,7 +3,7 @@
   export let row;
   let status = "";
   $: {
-    const pr = fetch(`captures/${mac}`, {
+    const pr = fetch(`routes/${mac}`, {
       method: "PUT",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: `route=${row.route}`,

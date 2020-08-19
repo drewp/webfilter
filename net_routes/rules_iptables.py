@@ -16,7 +16,7 @@ class RuleMaker:
 
         # todo: pick up existing state
         with iptables_lock:
-            subprocess.check_call(['sh', '-c', 'iptables-save | grep -v capture_web | iptables-restore'])
+            subprocess.check_call(['sh', '-c', 'iptables-save | grep -v net_routes | iptables-restore'])
 
     def _webfilter_rules(self, mac):
         for port in [80, 443]:
@@ -27,7 +27,7 @@ class RuleMaker:
                     rule.protocol = protocol
                     rule.create_match(protocol).dport = str(port)
                     rule.create_match('mac').mac_source = mac
-                    rule.create_match('comment').comment = "capture_web"
+                    rule.create_match('comment').comment = "net_routes"
                     rule.target = iptc.Target(rule, 'REDIRECT')
                     rule.target.to_ports = self.webfilter_port
                     yield rule
@@ -35,7 +35,7 @@ class RuleMaker:
     def _drop_rules(self, mac):
         rule = iptc.Rule()
         rule.create_match('mac').mac_source = mac
-        rule.create_match('comment').comment = "capture_web"
+        rule.create_match('comment').comment = "net_routes"
         rule.target = iptc.Target(rule, 'DROP')
         yield rule
 
