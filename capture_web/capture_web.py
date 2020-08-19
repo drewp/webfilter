@@ -35,7 +35,7 @@ if __name__ == '__main__':
     macs_to_send_through_mitmproxy = {
     }
 
-    rm = RuleMaker(route_to_localhost_port='8443', capture_interfaces=['ens5', 'enp1s0'])
+    rm = RuleMaker(webfilter_port='8443', capture_interfaces=['ens5', 'enp1s0'])
 
     class Captures(Resource):
 
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     api.add_resource(Captures, '/captures')
 
     parser = reqparse.RequestParser()
-    parser.add_argument('capturing', type=bool)
+    parser.add_argument('route', type=str)  # 'normal', 'drop', 'webfilter'
 
     def routingChanged():
         log.info(' routingChanged')
@@ -64,22 +64,16 @@ if __name__ == '__main__':
 
             args = parser.parse_args()
             log.info(f'put req mac={mac} args={args!r}')
-            if cap['capturing'] != args['capturing']:
-                if args['capturing']:
-                    log.info(f'request to capture {mac}')
-                    rm.capture_outgoing_web_traffic(mac)
-                    routingChanged()
-                else:
-                    log.info(f'request to uncapture {mac}')
-                    rm.uncapture(mac)
-                    routingChanged()
-
-                cap['capturing'] = args['capturing']
+            if cap['route'] != args['route']:
+                log.info(f'request to capture {mac}')
+                rm.set_routing(mac, args['route'])
+                routingChanged()
+                cap['route'] = args['route']
             return cap
 
         def delete(self, mac):
             log.info(f'request to forget {mac}')
-            rm.uncapture(mac)
+            rm.set_routing(mac, 'normal')
             routingChanged()
             del macs_to_send_through_mitmproxy[mac]
             return '', 204

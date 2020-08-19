@@ -10,15 +10,15 @@ class RuleMaker:
     Build iptables rules for redirecting internal hosts' web traffic to mitmproxy.
     """
 
-    def __init__(self, route_to_localhost_port='8443', capture_interfaces=['ens5']):
-        self.route_to_localhost_port = route_to_localhost_port
+    def __init__(self, webfilter_port='8443', capture_interfaces=['ens5']):
+        self.webfilter_port = webfilter_port
         self.capture_interfaces = capture_interfaces
 
         # todo: pick up existing state
         with iptables_lock:
             subprocess.check_call(['sh', '-c', 'iptables-save | grep -v capture_web | iptables-restore'])
 
-    def _rule(self, mac):
+    def _webfilter_rules(self, mac):
         for port in [80, 443]:
             for protocol in ['tcp', 'udp']:
                 for iface in self.capture_interfaces:
@@ -29,24 +29,48 @@ class RuleMaker:
                     rule.create_match('mac').mac_source = mac
                     rule.create_match('comment').comment = "capture_web"
                     rule.target = iptc.Target(rule, 'REDIRECT')
-                    rule.target.to_ports = self.route_to_localhost_port
+                    rule.target.to_ports = self.webfilter_port
                     yield rule
 
-    def capture_outgoing_web_traffic(self, mac):
-        with iptables_lock:
-            table = iptc.Table(iptc.Table.NAT)
-            chain = iptc.Chain(table, 'PREROUTING')
-            for rule in self._rule(mac):
-                print('adding', rule)
-                chain.insert_rule(rule)
+    def _drop_rules(self, mac):
+        rule = iptc.Rule()
+        rule.create_match('mac').mac_source = mac
+        rule.create_match('comment').comment = "capture_web"
+        rule.target = iptc.Target(rule, 'DROP')
+        yield rule
+
+    def set_routing(self, mac, mode):
+        self.uncapture(mac)
+        if mode == 'normal':
+            pass
+        elif mode == 'drop':
+            with iptables_lock:
+                table = iptc.Table(iptc.Table.RAW)
+                chain = iptc.Chain(table, 'PREROUTING')
+                for rule in self._drop_rules(mac):
+                    print('adding', rule)
+                    chain.insert_rule(rule)
+
+        elif mode == 'webfilter':
+            with iptables_lock:
+                table = iptc.Table(iptc.Table.NAT)
+                chain = iptc.Chain(table, 'PREROUTING')
+                for rule in self._webfilter_rules(mac):
+                    print('adding', rule)
+                    chain.insert_rule(rule)
+        else:
+            raise NotImplementedError(mode)
 
     def uncapture(self, mac):
         with iptables_lock:
-            table = iptc.Table(iptc.Table.NAT)
-            chain = iptc.Chain(table, 'PREROUTING')
-            for rule in self._rule(mac):
-                print('deleting', rule)
-                try:
-                    chain.delete_rule(rule)
-                except iptc.IPTCError:
-                    print("  delete failed- ignore")
+            for table, rules in [
+                (iptc.Table(iptc.Table.NAT), self._webfilter_rules(mac)),
+                (iptc.Table(iptc.Table.RAW), self._drop_rules(mac)),
+            ]:
+                chain = iptc.Chain(table, 'PREROUTING')
+                for rule in rules:
+                    print('deleting', rule)
+                    try:
+                        chain.delete_rule(rule)
+                    except iptc.IPTCError as e:
+                        print(f"  delete failed {e!r}- ignore")

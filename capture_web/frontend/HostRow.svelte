@@ -6,7 +6,7 @@
     const pr = fetch(`captures/${mac}`, {
       method: "PUT",
       headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: `capturing=${row.capturing ? "yes" : ""}`,
+      body: `route=${row.route}`,
     });
     status = "sending";
     pr.then((resp) => {
@@ -25,7 +25,9 @@
   <td>{row.host}</td>
   <td>{mac}</td>
   <td>
-    <input type="checkbox" bind:checked={row.capturing} />
+    <label><input type="radio" bind:group={row.route} value="normal"/> normal</label>
+    <label><input type="radio" bind:group={row.route} value="webfilter"/> webfilter</label>
+    <label><input type="radio" bind:group={row.route} value="drop"/> drop</label>
   </td>
   <td>{status}</td>
 </tr>
