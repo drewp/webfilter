@@ -21,13 +21,30 @@
   }
 </script>
 
+<style>
+  .status {
+    color: gray;
+    font-size: 80%;
+  }
+</style>
+
 <tr>
-  <td>{row.host}</td>
-  <td>{mac}</td>
   <td>
-    <label><input type="radio" bind:group={row.route} value="normal"/> normal</label>
-    <label><input type="radio" bind:group={row.route} value="webfilter"/> webfilter</label>
-    <label><input type="radio" bind:group={row.route} value="drop"/> drop</label>
+    <span title={mac}>{row.host}</span>
   </td>
-  <td>{status}</td>
+  <td>
+    <label>
+      <input type="radio" bind:group={row.route} value="normal" />
+      normal
+    </label>
+    <label>
+      <input type="radio" bind:group={row.route} value="webfilter" />
+      webfilter
+    </label>
+    <label>
+      <input type="radio" bind:group={row.route} value="drop" />
+      drop
+    </label>
+  </td>
+  <td class="status">{status}</td>
 </tr>

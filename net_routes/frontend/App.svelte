@@ -20,7 +20,6 @@
     <table>
       <tr>
         <td>host</td>
-        <td />
         <td>filter?</td>
         <td />
       </tr>
