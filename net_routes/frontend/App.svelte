@@ -24,7 +24,7 @@
         <td />
       </tr>
       {#each sorted(m) as [mac, row]}
-        <HostRow {mac} {row} />
+        <HostRow {mac} {row} disabled={mac=="0c:fe:45:db:33:9e"}/>
       {/each}
     </table>
   {:catch error}

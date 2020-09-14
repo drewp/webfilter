@@ -16,15 +16,52 @@ dot# sudo dpkg-reconfigure ca-certificates
 
 
 """
+from dataclasses import dataclass
 import logging
+import threading
+import time
+from typing import Callable
 
 from flask import Flask
+
 from flask_restful import Api, Resource, reqparse
 from prometheus_flask_exporter import PrometheusMetrics
-
+from rdflib import Graph, Namespace, RDF, URIRef
 from rules_iptables import RuleMaker
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger()
+
+EV = Namespace("http://bigasterisk.com/event#")
+
+
+@dataclass(eq=False)
+class CalendarSync(threading.Thread):
+    """events on this google calendar (read by gcalendarwatch) activate the given device"""
+    feed: URIRef
+    macToActivate: str
+    changeRoute: Callable[[str, str], None]
+
+    def __post_init__(self):
+        threading.Thread.__init__(self, daemon=True)
+
+    def run(self):
+        while True:
+            if self._inAnyEvents():
+                changeRoute(self.macToActivate, 'normal')
+            else:
+                changeRoute(self.macToActivate, 'drop')
+            time.sleep(60)
+
+    def _inAnyEvents(self):
+        g = Graph()
+        g.parse('http://gcalendarwatch.default.svc.cluster.local/events', format='n3')
+        for ev in g.subjects(EV['feed'], self.feed):
+            if (ev, RDF.type, EV['Event']) not in g:
+                continue
+            s = g.value(ev, EV.start).toPython()
+            e = g.value(ev, EV.end).toPython()
+            log.debug(f'cal event from {s} to {e} title {g.value(ev, EV.title)}')
+
 
 if __name__ == '__main__':
 
@@ -54,6 +91,17 @@ if __name__ == '__main__':
         log.info(' routingChanged')
         pass  # eventsource, tell web page
 
+    def changeRoute(mac, newRoute):
+        cap = macs_to_send_through_mitmproxy[mac]
+        if cap['route'] != newRoute:
+            log.info(f'request to capture {mac} as {newRoute}')
+            rm.set_routing(mac, newRoute)
+            routingChanged()
+            cap['route'] = newRoute
+
+    syncs = [CalendarSync(feed=ps4online, macToActivate=ps4mac, changeRoute=changeRoute)]
+    [s.start() for s in syncs]
+
     class CaptureRule(Resource):
 
         def get(self, mac):
@@ -61,14 +109,9 @@ if __name__ == '__main__':
 
         def put(self, mac):
             cap = macs_to_send_through_mitmproxy[mac]
-
             args = parser.parse_args()
             log.info(f'put req mac={mac} args={args!r}')
-            if cap['route'] != args['route']:
-                log.info(f'request to capture {mac}')
-                rm.set_routing(mac, args['route'])
-                routingChanged()
-                cap['route'] = args['route']
+            changeRoute(mac=mac, newRoute=args['route'])
             return cap
 
         def delete(self, mac):

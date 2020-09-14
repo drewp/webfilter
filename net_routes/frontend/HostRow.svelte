@@ -1,6 +1,7 @@
 <script>
   export let mac;
   export let row;
+  export let disabled = false;
   let status = "";
   $: {
     const pr = fetch(`routes/${mac}`, {
@@ -29,22 +30,14 @@
 </style>
 
 <tr>
+  <td><span title={mac}>{row.host}</span></td>
   <td>
-    <span title={mac}>{row.host}</span>
-  </td>
-  <td>
-    <label>
-      <input type="radio" bind:group={row.route} value="normal" />
-      normal
-    </label>
-    <label>
-      <input type="radio" bind:group={row.route} value="webfilter" />
-      webfilter
-    </label>
-    <label>
-      <input type="radio" bind:group={row.route} value="drop" />
-      drop
-    </label>
+    <label> <input type="radio" bind:group={row.route} value="normal" {disabled} /> normal </label>
+    <label> <input type="radio" bind:group={row.route} value="webfilter" {disabled} /> webfilter </label>
+    <label> <input type="radio" bind:group={row.route} value="drop" {disabled} /> drop </label>
   </td>
   <td class="status">{status}</td>
+  <td>
+    {#if disabled}(This row is controlled by a calendar){/if}
+  </td>
 </tr>
