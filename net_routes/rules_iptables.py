@@ -1,8 +1,11 @@
+import logging
 import subprocess
 import threading
 
 import iptc
 iptables_lock = threading.Lock()
+
+log = logging.getLogger()
 
 
 class RuleMaker:
@@ -48,7 +51,7 @@ class RuleMaker:
                 table = iptc.Table(iptc.Table.RAW)
                 chain = iptc.Chain(table, 'PREROUTING')
                 for rule in self._drop_rules(mac):
-                    print('adding', rule)
+                    log.info('adding %r', rule)
                     chain.insert_rule(rule)
 
         elif mode == 'webfilter':
@@ -56,7 +59,7 @@ class RuleMaker:
                 table = iptc.Table(iptc.Table.NAT)
                 chain = iptc.Chain(table, 'PREROUTING')
                 for rule in self._webfilter_rules(mac):
-                    print('adding', rule)
+                    log.info('adding %r', rule)
                     chain.insert_rule(rule)
         else:
             raise NotImplementedError(mode)
@@ -69,8 +72,8 @@ class RuleMaker:
             ]:
                 chain = iptc.Chain(table, 'PREROUTING')
                 for rule in rules:
-                    print('deleting', rule)
+                    log.info('deleting %r', rule)
                     try:
                         chain.delete_rule(rule)
                     except iptc.IPTCError as e:
-                        print(f"  delete failed {e!r}- ignore")
+                        log.debug(f"  delete failed {e!r}- ignore")
