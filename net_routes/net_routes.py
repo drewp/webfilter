@@ -3,7 +3,6 @@
 To see a dump in nft-language:
   nft list ruleset
 
-
 See
 https://github.com/firewalld/firewalld/blob/master/src/firewall/core/nftables.py
 for one of the few other published users of the nft json API.
@@ -13,22 +12,23 @@ dot# mkdir extra
 dot# cat > extra/mitmproxy.crt
 (paste mitmproxy/mitmproxy-ca-cert.cer)
 dot# sudo dpkg-reconfigure ca-certificates
-
-
 """
 from dataclasses import dataclass
+import datetime
 import logging
 import threading
 import time
 from typing import Callable
 
+from dateutil.parser import parse
+from dateutil.tz import tzlocal
 from flask import Flask
-
 from flask_restful import Api, Resource, reqparse
 from prometheus_flask_exporter import PrometheusMetrics
 from rdflib import Graph, Namespace, RDF, URIRef
+
 from rules_iptables import RuleMaker
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 EV = Namespace("http://bigasterisk.com/event#")
@@ -45,22 +45,32 @@ class CalendarSync(threading.Thread):
         threading.Thread.__init__(self, daemon=True)
 
     def run(self):
+        log.info(f'syncing {self.macToActivate} to calendar feed')
         while True:
-            if self._inAnyEvents():
-                changeRoute(self.macToActivate, 'normal')
-            else:
-                changeRoute(self.macToActivate, 'drop')
-            time.sleep(60)
+            try:
+                if self._inAnyEvents():
+                    changeRoute(self.macToActivate, 'normal')
+                else:
+                    changeRoute(self.macToActivate, 'drop')
+                time.sleep(60)
+            except Exception as e:
+                log.warn(f'calendar sync {e!r} - retrying')
+                time.sleep(5)
 
-    def _inAnyEvents(self):
+    def _inAnyEvents(self) -> bool:
         g = Graph()
         g.parse('http://gcalendarwatch.default.svc.cluster.local/events', format='n3')
+        now = datetime.datetime.now(tzlocal())
         for ev in g.subjects(EV['feed'], self.feed):
             if (ev, RDF.type, EV['Event']) not in g:
                 continue
-            s = g.value(ev, EV.start).toPython()
-            e = g.value(ev, EV.end).toPython()
+            s = parse(g.value(ev, EV.start).toPython())
+            e = parse(g.value(ev, EV.end).toPython())
             log.debug(f'cal event from {s} to {e} title {g.value(ev, EV.title)}')
+            if s <= now <= e:
+                log.debug('that is happening now')
+                return True
+        return False
 
 
 if __name__ == '__main__':
