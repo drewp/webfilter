@@ -60,7 +60,7 @@ console_default_contentview: auto
 
 # EventLog verbosity. Valid values are 'error', 'warn', 'info', 'alert',
 # 'debug'.
-console_eventlog_verbosity: debug
+console_eventlog_verbosity: info
 
 # Set the flowlist layout Valid values are 'default', 'list', 'table'.
 console_flowlist_layout: default
@@ -102,7 +102,14 @@ http2_priority: false
 # hostname should be used. The supplied value is interpreted as a
 # regular expression and matched on the ip or the hostname. Type
 # sequence of str.
-ignore_hosts: []
+
+# zoom sends its own traffic over 443. See
+# https://support.zoom.us/hc/en-us/articles/201362683-Network-firewall-or-proxy-server-settings-for-Zoom
+# and do not see https://zoom.us/docs/doc/Zoom%20Connection%20Process%20Whitepaper.pdf because the fallback 
+# to 8801 did not appear to happen (according to wireshark).
+ignore_hosts:
+  - 'zoom\.us'
+  - '.*\.zoom\.us'
 
 # Intercept filter expression. Type optional str.
 intercept:
