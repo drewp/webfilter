@@ -18,7 +18,7 @@ import datetime
 import logging
 import threading
 import time
-from typing import Callable
+from typing import Callable, Optional
 
 from dateutil.parser import parse
 from dateutil.tz import tzlocal
@@ -26,6 +26,7 @@ from flask import Flask
 from flask_restful import Api, Resource, reqparse
 from prometheus_flask_exporter import PrometheusMetrics
 from rdflib import Graph, Namespace, RDF, URIRef
+import housebot
 
 from rules_iptables import RuleMaker
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +40,7 @@ class CalendarSync(threading.Thread):
     """events on this google calendar (read by gcalendarwatch) activate the given device"""
     feed: URIRef
     macToActivate: str
-    changeRoute: Callable[[str, str], None]
+    changeRoute: Callable[[str, str, str], None]
 
     def __post_init__(self):
         threading.Thread.__init__(self, daemon=True)
@@ -48,16 +49,17 @@ class CalendarSync(threading.Thread):
         log.info(f'syncing {self.macToActivate} to calendar feed')
         while True:
             try:
-                if self._inAnyEvents():
-                    changeRoute(self.macToActivate, 'normal')
+                evTitle = self._currentEventTitle()
+                if evTitle is not None:
+                    changeRoute(self.macToActivate, 'normal', reason=f"calendar event: {evTitle}")
                 else:
-                    changeRoute(self.macToActivate, 'drop')
+                    changeRoute(self.macToActivate, 'drop', reason="no current calendar event")
                 time.sleep(60)
             except Exception as e:
-                log.warn(f'calendar sync {e!r} - retrying')
+                log.warning(f'calendar sync {e!r} - retrying')
                 time.sleep(5)
 
-    def _inAnyEvents(self) -> bool:
+    def _currentEventTitle(self) -> Optional[str]:
         g = Graph()
         g.parse('http://gcalendarwatch.default.svc.cluster.local/events', format='n3')
         now = datetime.datetime.now(tzlocal())
@@ -69,8 +71,8 @@ class CalendarSync(threading.Thread):
             log.debug(f'cal event from {s} to {e} title {g.value(ev, EV.title)}')
             if s <= now <= e:
                 log.debug('that is happening now')
-                return True
-        return False
+                return g.value(ev, EV.title).toPython()
+        return None
 
 
 if __name__ == '__main__':
@@ -101,10 +103,12 @@ if __name__ == '__main__':
         log.info(' routingChanged')
         pass  # eventsource, tell web page
 
-    def changeRoute(mac, newRoute):
+    def changeRoute(mac, newRoute, reason: str):
+        # this call might not be on the main thread
         cap = macs_to_send_through_mitmproxy[mac]
         if cap['route'] != newRoute:
-            log.info(f'request to capture {mac} as {newRoute}')
+            log.info(f'request to capture {mac} as {newRoute} because {reason}')
+            housebot.say(f"net-routes changes *{cap['host']}* to *{newRoute}* because {reason}")
             rm.set_routing(mac, newRoute)
             routingChanged()
             cap['route'] = newRoute
@@ -121,7 +125,7 @@ if __name__ == '__main__':
             cap = macs_to_send_through_mitmproxy[mac]
             args = parser.parse_args()
             log.info(f'put req mac={mac} args={args!r}')
-            changeRoute(mac=mac, newRoute=args['route'])
+            changeRoute(mac=mac, newRoute=args['route'], reason="web request")
             return cap
 
         def delete(self, mac):
