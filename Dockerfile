@@ -22,5 +22,6 @@ RUN apt-get install -y iptables
 
 COPY *.py *.html ./
 COPY build/ build
+COPY mitmproxy/ mitmproxy
 
-#CMD [ "mitmdump" ]
+CMD [ "python3", "report.py", "-v" ]

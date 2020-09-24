@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webfilter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webfilter
+  template:
+    metadata:
+      labels:
+        app: webfilter
+    spec:
+      containers:
+        - name: webfilter
+          image: bang5:5000/webfilter_report_image
+          ports:
+            - containerPort: 10001
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: "kubernetes.io/hostname"
+                    operator: In
+                    values: ["bang"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webfilter
+spec:
+  ports:
+    - { port: 80, targetPort: 10001, name: http }
+  selector:
+    app: webfilter
