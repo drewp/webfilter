@@ -1,5 +1,6 @@
 """plugin script for mitmdump that rejects some web requests"""
 import datetime
+import importlib
 import inspect
 import json
 import os
@@ -13,15 +14,40 @@ import mitmproxy.flow
 import mitmproxy.http
 import mitmproxy.proxy.protocol
 import prometheus_client
+from prometheus_client import Summary, Counter
 from pymongo import MongoClient
 from rdflib import ConjunctiveGraph, Namespace
 
 import url_category
 
 
+_ntc = prometheus_client.REGISTRY._names_to_collectors
+if 'refresh_calls' in _ntc:
+    REFRESH = _ntc['refresh_calls']
+    REQUEST_KILLS = _ntc['request_kills']
+    REQUEST_ERRORS = _ntc['request_errors']
+    RESPONSES = _ntc['responses']
+    REQUEST_HANDLER = _ntc['request_handler']
+    RESPONSE_HANDLER = _ntc['response_handler']
+else:
+    REFRESH = Summary('refresh_calls', 'time in TimebankClient.refresh')
+    REQUEST_KILLS = Counter('request_kills', 'requests killed')
+    REQUEST_ERRORS = Counter('request_errors', 'requests that could not be understood')
+    RESPONSES = Counter('responses', 'responses seen', ['contentType'])
+    REQUEST_HANDLER = Summary('request_handler', 'time in Webfilter.request')
+    RESPONSE_HANDLER = Summary('response_handler', 'time in Webfilter.response')
+
+
 def plog(msg):
     caller = inspect.currentframe().f_back
-    print(f'{caller.f_code.co_filename}:{caller.f_lineno}--> {msg}', file=sys.stdout, flush=True)
+    fn = os.path.basename(caller.f_code.co_filename)
+    print(f'{fn}:{caller.f_lineno}--> {msg}', file=sys.stdout, flush=True)
+
+
+def trunc_url(url):
+    if len(url) > 103:
+        url = url[:100] + '...'
+    return url
 
 
 class TimebankClient:
@@ -32,8 +58,11 @@ class TimebankClient:
         self._currently_blocked_mac: Set[str] = set()
         self._last_refresh = 0
 
+    @REFRESH.time()
     def refresh(self):
         plog('refresh now')
+        t1 = time.time()
+        importlib.reload(url_category)
         graph = self._get_graphs()
 
         self._mac_from_ip = {}
@@ -51,12 +80,13 @@ class TimebankClient:
                     self._currently_blocked_mac.add(mac.toPython())
 
         plog(f'currently blocked: {self._currently_blocked_mac}')
+        plog(f'refresh took {(time.time()-t1)*1000:.1f} ms')
 
     def _get_graphs(self):
         graph = ConjunctiveGraph()
         try:
-            graph.parse('http://bang:10006/graph/timebank', format='trig')
-            graph.parse('http://bang:9070/graph/wifi', format='trig')
+            graph.parse(f'http://{os.environ["WIFI_PORT_80_TCP_ADDR"]}/graph/wifi', format='trig')
+            #graph.parse('http://bang:10006/graph/timebank', format='trig')
         except Exception as e:
             plog(f"failed to fetch graph(s): {e!r}")
 
@@ -80,10 +110,10 @@ class TimebankClient:
         #     return True
 
         if url_category.always_allowed(url):
-            plog(f'allowed: {url}')
+            plog(f'allowed: {trunc_url(url)}')
             return True
         else:
-            plog(f'not in always_allowed: {url}')
+            plog(f'not in always_allowed: {trunc_url(url)}')
 
         return False
 
@@ -133,12 +163,13 @@ class Webfilter:
 
         flow.kill()
 
+    @REQUEST_HANDLER.time()
     def request(self, flow: mitmproxy.http.HTTPFlow):
         try:
             client_ip = flow.client_conn.ip_address[0].split(':')[-1]
             url = flow.request.pretty_url
 
-            plog(f'request from {client_ip} to {url}')
+            plog(f'request from {client_ip} to {trunc_url(url)}')
             if '10.5.0.1' in url:
                 # don't try to fulfill this- it will infinitely route back to mitmdump!
                 self._internal_url(url, flow)
@@ -147,12 +178,14 @@ class Webfilter:
             killed = False
             if not self.timebank.allowed(client_ip, url):
                 flow.kill()
+                REQUEST_KILLS.inc()
                 killed = True
 
             self.save_interesting_events(flow, url, client_ip, killed)
         except Exception:
             traceback.print_exc(file=sys.stdout)
             flow.kill()
+            REQUEST_ERRORS.inc()
             # but don't raise or crash, or webfilter.py just won't be loaded and all reqs go through!
 
     def save_interesting_events(self, flow, url, client_ip, killed):
@@ -203,13 +236,22 @@ class Webfilter:
                     },
                 })
 
+        if killed:
+            self.db.write_event(client_ip, killed, {
+                'tag': 'htmlPage',
+                'url': url,
+            })
+
+    @RESPONSE_HANDLER.time()
     def response(self, flow: mitmproxy.http.HTTPFlow):
-        if flow.response.headers.get('content-type', '').startswith('text/html'):
+        first_ct = flow.response.headers.get('content-type', '').split(';')[0]
+        RESPONSES.labels(contentType=first_ct).inc()
+        if first_ct == 'text/html':
             client_ip = flow.client_conn.ip_address[0].split(':')[-1]
             url = flow.request.pretty_url
             if url_category.too_boring_to_log(url):
                 return
-            self.db.write_event(client_ip, False, {
+            self.db.write_event(client_ip, killed=False, doc={
                 'tag': 'htmlPage',
                 'url': url,
             })
