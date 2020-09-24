@@ -8,8 +8,12 @@ build:
       format: "2006-01-02_15-04-05"
       timezone: "Local"
   artifacts:
-  - image: bang5:5000/mitmproxy_image
+    - image: bang5:5000/mitmproxy_image
+      sync:
+        infer:
+          - config/url_category.py
+          - config/webfilter.py
 deploy:
   kubectl:
     manifests:
-    - deploy.yaml
+      - deploy.yaml
