@@ -34,6 +34,7 @@ const DCTERMS = Namespace("http://purl.org/dc/terms/");
 interface DisplayRow {
   time: Moment;
   creator: string;
+  killed: boolean;
   prettyTime: string;
   thumbnailUrl: string | undefined;
   uri: NamedNode;
@@ -96,6 +97,7 @@ export class TimebankReport extends LitElement {
         uri: uri,
         time: t,
         prettyTime: t.format("YYYY-MM-DD ddd HH:mm:ss"),
+        killed: getStringValue(store, uri, EV.killed) == "true",
         thumbnailUrl: getStringValue(store, uri, EV.thumbnailUrl),
         creator: userFromMac(getStringValue(store, uri, DCTERMS.creator)),
       });
@@ -116,7 +118,8 @@ export class TimebankReport extends LitElement {
           q.predicate.equals(RDF.type) ||
           q.predicate.equals(EV.thumbnailUrl) ||
           q.predicate.equals(DCTERMS.created) ||
-          q.predicate.equals(DCTERMS.creator)
+          q.predicate.equals(DCTERMS.creator) ||
+          q.predicate.equals(EV.killed) 
         ) {
           // already in a header column (except some types)
         } else {
@@ -176,6 +179,7 @@ export class TimebankReport extends LitElement {
         <tr class="${rowClasses}">
           <td class="created">${row.prettyTime}</td>
           <td class="creator">${row.creator}</td>
+          <td class="allow">${row.killed ? "_" : "Y"}</td>
           <td>
             <img class="rowIcon" src="${row.thumbnailUrl}" />
           </td>
@@ -192,6 +196,7 @@ export class TimebankReport extends LitElement {
           <tr>
             <th>time</th>
             <th>host</th>
+            <th>allow</th>
             <th></th>
             <th></th>
           </tr>
