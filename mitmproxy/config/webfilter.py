@@ -73,6 +73,7 @@ class TimebankClient:
         self._mac_from_ip = {}
         self._currently_blocked_mac = set()
         for host, _, status in graph.triples((None, self.ROOM['networking'], None)):
+        for host in graph.subjects(RDF.type, self.ROOM['NetworkedDevice']):
             mac = graph.value(host, self.ROOM['macAddress'], default=None)
             ip = graph.value(host, self.ROOM['ipAddress'], default=None)
             if mac and ip:
@@ -84,6 +85,8 @@ class TimebankClient:
                 else:
                     self._currently_blocked_mac.add(mac.toPython())
 
+        # turn these to metrics
+        plog(f'{len(self._mac_from_ip)} macs with ips')
         plog(f'currently blocked: {self._currently_blocked_mac}')
         plog(f'refresh took {(time.time()-t1)*1000:.1f} ms')
 
@@ -91,7 +94,7 @@ class TimebankClient:
         graph = ConjunctiveGraph()
         try:
             graph.parse(f'http://{os.environ["WIFI_PORT_80_TCP_ADDR"]}/graph/wifi', format='trig')
-            #graph.parse('http://bang:10006/graph/timebank', format='trig')
+            # graph.parse('http://bang:10006/graph/timebank', format='trig')
         except Exception as e:
             plog(f"failed to fetch graph(s): {e!r}")
 
