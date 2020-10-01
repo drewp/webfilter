@@ -21,27 +21,32 @@ from rdflib import ConjunctiveGraph, Namespace
 import url_category
 
 
-_ntc = prometheus_client.REGISTRY._names_to_collectors
-if 'refresh_calls' in _ntc:
-    REFRESH = _ntc['refresh_calls']
-    REQUEST_KILLS = _ntc['request_kills']
-    REQUEST_ERRORS = _ntc['request_errors']
-    RESPONSES = _ntc['responses']
-    REQUEST_HANDLER = _ntc['request_handler']
-    RESPONSE_HANDLER = _ntc['response_handler']
-else:
-    REFRESH = Summary('refresh_calls', 'time in TimebankClient.refresh')
-    REQUEST_KILLS = Counter('request_kills', 'requests killed')
-    REQUEST_ERRORS = Counter('request_errors', 'requests that could not be understood')
-    RESPONSES = Counter('responses', 'responses seen', ['contentType'])
-    REQUEST_HANDLER = Summary('request_handler', 'time in Webfilter.request')
-    RESPONSE_HANDLER = Summary('response_handler', 'time in Webfilter.response')
-
-
 def plog(msg):
     caller = inspect.currentframe().f_back
     fn = os.path.basename(caller.f_code.co_filename)
     print(f'{fn}:{caller.f_lineno}--> {msg}', file=sys.stdout, flush=True)
+
+
+_ntc = prometheus_client.REGISTRY._names_to_collectors
+
+
+def _reuseOrMake(mtype, name, *args):
+    searchName = name
+    if issubclass(mtype, Counter):
+        searchName = name + '_total'
+    if searchName in _ntc:
+        return _ntc[searchName]
+    return mtype(name, *args)
+
+
+REFRESH = _reuseOrMake(Summary, 'refresh_calls', 'time in TimebankClient.refresh')
+REQUEST_KILLS = _reuseOrMake(Counter, 'request_kills', 'requests killed')
+REQUEST_ERRORS = _reuseOrMake(Counter, 'request_errors', 'requests that could not be understood')
+RESPONSES = _reuseOrMake(Counter, 'responses', 'responses seen', ['contentType'])
+REQUEST_HANDLER = _reuseOrMake(Summary, 'request_handler', 'time in Webfilter.request')
+RESPONSE_HANDLER = _reuseOrMake(Summary, 'response_handler', 'time in Webfilter.response')
+
+plog('init metrics %r' % sorted(_ntc.keys()))
 
 
 def trunc_url(url):
