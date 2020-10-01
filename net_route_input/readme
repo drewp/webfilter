@@ -1,0 +1,18 @@
+User input about desired routes -> mongodb
+
+Calls upon net_routes for the true routes and their reasons.
+
+db: timebank
+  coll: hosts
+    doc:
+      mac
+      name
+      allowed
+      changed
+  coll: routes
+    doc:
+      mac
+      mode: open|mitmproxy|drop
+      mitmproxyFilter: open|filtered
+      lastChange: time
+
