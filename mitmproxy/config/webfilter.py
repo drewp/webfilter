@@ -16,7 +16,7 @@ import mitmproxy.proxy.protocol
 import prometheus_client
 from prometheus_client import Summary, Counter
 from pymongo import MongoClient
-from rdflib import ConjunctiveGraph, Namespace
+from rdflib import ConjunctiveGraph, Namespace, RDF
 
 import url_category
 
@@ -55,6 +55,10 @@ def trunc_url(url):
     return url
 
 
+db = MongoClient(os.environ['MONGODB_SERVICE_HOST'], tz_aware=True).get_database('timebank')
+routes = db.get_collection('routes')
+
+
 class TimebankClient:
     ROOM = Namespace('http://projects.bigasterisk.com/room/')
 
@@ -72,18 +76,23 @@ class TimebankClient:
 
         self._mac_from_ip = {}
         self._currently_blocked_mac = set()
-        for host, _, status in graph.triples((None, self.ROOM['networking'], None)):
+
+        for doc in routes.find():
+            if doc['mitmproxyFilter'] == 'filtered':
+                self._currently_blocked_mac.add(doc['mac'])
+
         for host in graph.subjects(RDF.type, self.ROOM['NetworkedDevice']):
             mac = graph.value(host, self.ROOM['macAddress'], default=None)
             ip = graph.value(host, self.ROOM['ipAddress'], default=None)
             if mac and ip:
                 self._mac_from_ip[ip.toPython()] = mac.toPython()
 
-            if status == self.ROOM['blocked']:
-                if mac is None:
-                    plog(f'{host} is blocked but has no listed mac')
-                else:
-                    self._currently_blocked_mac.add(mac.toPython())
+            # no graph right now
+            # if status == self.ROOM['blocked']:
+            #     if mac is None:
+            #         plog(f'{host} is blocked but has no listed mac')
+            #     else:
+            #         self._currently_blocked_mac.add(mac.toPython())
 
         # turn these to metrics
         plog(f'{len(self._mac_from_ip)} macs with ips')
@@ -102,20 +111,22 @@ class TimebankClient:
         return graph
 
     def allowed(self, client_ip, url):
+        plog(f'allowed(ip={client_ip}, url={url})')
         now = time.time()
         if self._last_refresh < now - 5:
             self.refresh()
             self._last_refresh = now
 
-        # try:
-        #     mac = self._mac_from_ip[client_ip]
-        #     plog(f'request from {mac} {client_ip}')
-        # except KeyError:
-        #     return False
+        try:
+            mac = self._mac_from_ip[client_ip]
+            plog(f'request from {mac} {client_ip}')
+        except KeyError:
+            plog(f'no mac for ip {client_ip}')
+            return False
 
-        # if mac not in self._currently_blocked_mac:
-        #     plog('known and not blocked')
-        #     return True
+        if mac not in self._currently_blocked_mac:
+            plog('known and not blocked')
+            return True
 
         if url_category.always_allowed(url):
             plog(f'allowed: {trunc_url(url)}')
