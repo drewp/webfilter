@@ -146,6 +146,12 @@ class MongodbLog:
         self.coll.insert_one(doc)
 
 
+class PluginCrash(ValueError):
+    """for testing; make this mitmproxy error so it gets dropped,
+    and we can observe mitmproxy running without it (which needs to be caught and fixed)
+    """
+
+
 class Webfilter:
 
     def __init__(self):
@@ -180,6 +186,10 @@ class Webfilter:
                 self._internal_url(url, flow)
                 return
 
+            if 'example.com/die' in url:
+                # special for testing
+                raise PluginCrash()
+
             killed = False
             if not self.timebank.allowed(client_ip, url):
                 flow.kill()
@@ -187,6 +197,8 @@ class Webfilter:
                 killed = True
 
             self.save_interesting_events(flow, url, client_ip, killed)
+        except PluginCrash:
+            raise
         except Exception:
             traceback.print_exc(file=sys.stdout)
             flow.kill()
