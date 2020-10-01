@@ -51,7 +51,7 @@ class RuleMaker:
                 table = iptc.Table(iptc.Table.RAW)
                 chain = iptc.Chain(table, 'PREROUTING')
                 for rule in self._drop_rules(mac):
-                    log.info('adding %r', rule)
+                    log.info('adding drop rule for %r', mac)
                     chain.insert_rule(rule)
 
         elif mode == 'webfilter':
@@ -59,12 +59,13 @@ class RuleMaker:
                 table = iptc.Table(iptc.Table.NAT)
                 chain = iptc.Chain(table, 'PREROUTING')
                 for rule in self._webfilter_rules(mac):
-                    log.info('adding %r', rule)
+                    log.info('adding mitmproxy route for %r', mac)
                     chain.insert_rule(rule)
         else:
             raise NotImplementedError(mode)
 
     def uncapture(self, mac):
+        log.info('clearing routing rules for %r', mac)
         with iptables_lock:
             for table, rules in [
                 (iptc.Table(iptc.Table.NAT), self._webfilter_rules(mac)),
@@ -72,7 +73,7 @@ class RuleMaker:
             ]:
                 chain = iptc.Chain(table, 'PREROUTING')
                 for rule in rules:
-                    log.info('deleting %r', rule)
+                    # log.info('deleting %r', rule)
                     try:
                         chain.delete_rule(rule)
                     except iptc.IPTCError as e:

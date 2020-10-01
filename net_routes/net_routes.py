@@ -26,6 +26,8 @@ from flask import Flask
 from flask_restful import Api, Resource, reqparse
 from prometheus_flask_exporter import PrometheusMetrics
 from rdflib import Graph, Namespace, RDF, URIRef
+import pymongo
+import pymongo.collection
 import housebot
 
 from rules_iptables import RuleMaker
@@ -47,17 +49,19 @@ class CalendarSync(threading.Thread):
 
     def run(self):
         log.info(f'syncing {self.macToActivate} to calendar feed')
+        first = True
         while True:
             try:
                 evTitle = self._currentEventTitle()
                 if evTitle is not None:
-                    changeRoute(self.macToActivate, 'normal', reason=f"calendar event: {evTitle}")
+                    changeRoute(self.macToActivate, 'normal', reason=f"calendar event: {evTitle}", say=not first)
                 else:
-                    changeRoute(self.macToActivate, 'drop', reason="no current calendar event")
+                    changeRoute(self.macToActivate, 'drop', reason="no current calendar event", say=not first)
                 time.sleep(60)
             except Exception as e:
                 log.warning(f'calendar sync {e!r} - retrying')
-                time.sleep(5)
+                time.sleep(60)
+            first = False
 
     def _currentEventTitle(self) -> Optional[str]:
         g = Graph()
@@ -75,14 +79,24 @@ class CalendarSync(threading.Thread):
         return None
 
 
+class DbSync(threading.Thread):
+
+    def run(self):
+        first = True
+        while True:
+            syncRoutesFromMongo(say=not first)
+            first = False
+            time.sleep(5)
+
+
 if __name__ == '__main__':
 
     app = Flask(__name__)
     metrics = PrometheusMetrics(app)
     api = Api(app)
 
-    macs_to_send_through_mitmproxy = {
-    }
+    macs_to_send_through_mitmproxy = {}
+    last_set_route = {}  # mac : route
 
     rm = RuleMaker(webfilter_port='8443', capture_interfaces=['ens5', 'enp1s0'])
 
@@ -103,16 +117,19 @@ if __name__ == '__main__':
         log.info(' routingChanged')
         pass  # eventsource, tell web page
 
-    def changeRoute(mac, newRoute, reason: str):
+    def changeRoute(mac, newRoute, reason: str, say=True):
         # this call might not be on the main thread
-        cap = macs_to_send_through_mitmproxy[mac]
-        if cap['route'] != newRoute:
-            log.info(f'request to capture {mac} as {newRoute} because {reason}')
-            housebot.say(f"net-routes changes *{cap['host']}* to *{newRoute}* because {reason}")
+        last = last_set_route.get(mac, None)
+        if last != newRoute:
+            log.info(f'request to capture {mac} as {newRoute} because {reason} (say={say})')
+            if say:
+                housebot.say(f"net-routes changes *{mac}* to *{newRoute}* because {reason}")
             rm.set_routing(mac, newRoute)
             routingChanged()
-            cap['route'] = newRoute
+            last_set_route[mac] = newRoute
 
+    ps4online = URIRef("http://bigasterisk.com/calendar/feed/iem9ppgqdbleh96nkeaj4l6714@group.calendar.google.com")
+    ps4mac = '0c:fe:45:db:33:9e'
     syncs = [CalendarSync(feed=ps4online, macToActivate=ps4mac, changeRoute=changeRoute)]
     [s.start() for s in syncs]
 
@@ -139,10 +156,24 @@ if __name__ == '__main__':
 
     @app.route('/')
     def root():
-        return open('index.html').read()
+        return open('build/index.html').read()
 
     @app.route('/build/bundle.js')
     def bundle():
         return open('build/bundle.js').read()
+
+    db = pymongo.MongoClient('mongodb.default.svc.cluster.local', tz_aware=True).get_database('timebank')
+    hosts = db.get_collection('hosts')
+    routes = db.get_collection('routes')
+
+    def syncRoutesFromMongo(say=True):
+        for row in routes.find():
+            if row['mac'] == ps4mac:
+                continue
+            ourMode = {'open': 'normal', 'mitmproxy': 'webfilter', 'drop': 'drop'}[row['mode']]
+            changeRoute(row['mac'], ourMode, "sync to web form", say=say)
+
+    ds = DbSync()
+    ds.start()
 
     app.run(port=10001, host="0.0.0.0", debug=False)

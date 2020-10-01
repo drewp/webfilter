@@ -13,7 +13,7 @@ spec:
         app: net-routes
     spec:
       hostNetwork: true
-      terminationGracePeriodSeconds: 1
+      terminationGracePeriodSeconds: 5
       containers:
         - name: net-routes
           image: bang5:5000/net_routes_image
